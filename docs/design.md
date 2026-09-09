@@ -8,9 +8,9 @@ The newest user instruction supersedes instant atomic batches. Apply is now **St
 2. Queue normal `ISInventoryTransferUtil` actions for the gun and selected parts (no time override). Floor sources use the vanilla loot-page floor view.
 3. Lazily dispatch removals child-first, installations dependency-first, then reattach retained children. Lazy dispatch allows native validity checks to see the results of the previous operation.
 4. Ordinary parts call the existing GoM `onUpgradeWeapon` / `onRemoveUpgradeWeapon` context handlers, including tool equipping. Universal rails equip their source/tool and use `ISUpgradeWeapon:new(..., outcomeFullType)` as Gunworks does.
-5. The normal B42 server timed-action machinery owns completion, inventories, callbacks, stats and synchronization. The custom `GMAW/apply` server endpoint and direct mutation/rollback functions are removed.
+5. Native B42 actions still own the visual duration, equipment and cancellation behavior. In multiplayer, their local completion is suppressed and a narrow `GMAW/apply` request makes the server revalidate inventory IDs, tools, slot state, compatibility and dependencies before it mutates/synchronizes the weapon.
 6. Native cancellation/races stop remaining work. Completed transfers, removals and installs remain; no whole-cart rollback claim is made. Read-only `Batch.preflight` remains only for planning validation and detach ordering.
-7. Owned action instances observe perform/stop/forceCancel without changing native completion. No global native class overrides, no forced instant duration, no client item mutation, no new dependencies. Active/stateful underbarrel removal remains conservatively excluded.
+7. Owned action instances observe perform/stop/forceCancel and suppress only multiplayer-local `complete`; no global native class overrides, no forced instant duration, no client item mutation, and no new dependencies. Active/stateful underbarrel removal remains conservatively excluded.
 
 ## UI and compatibility
 

@@ -21,8 +21,10 @@ for (const [,slot] of read('media/lua/shared/GMAW/Model.lua').split('function M.
   assert.ok(en[`IGUI_GMAW_Slot_${slot}`], `slot ${slot}`);
 }
 assert.doesNotMatch(ui, /:attachWeaponPart\(|:detachWeaponPart\(|sendRemoveItemFromContainer\(/, 'client is preview only');
-assert.doesNotMatch(ui, /sendClientCommand|GMAWServer/, 'No instant apply protocol');
-assert.ok(!fs.existsSync(path.join(mod,'media/lua/server/GMAW/Server.lua')), 'Legacy instant server endpoint removed');
+assert.match(read('media/lua/client/GMAW/Actions.lua'), /sendClientCommand\(batch.player, \"GMAW\", \"apply\"/, 'MP completion is sent to the authority');
+const server = read('media/lua/server/GMAW/Server.lua');
+assert.match(server, /Events.OnClientCommand.Add/);
+assert.match(server, /Authority.apply/);
 const actions = read('media/lua/client/GMAW/Actions.lua');
 for (const name of ['ISInventoryTransferUtil.newInventoryTransferAction','onRemoveUpgradeWeapon','onUpgradeWeapon','ISUpgradeWeapon:new','Events.OnTick.Add(A.tick)']) assert.ok(actions.includes(name));
 for (const source of [actions,read('media/lua/shared/GMAW/Batch.lua')]) {

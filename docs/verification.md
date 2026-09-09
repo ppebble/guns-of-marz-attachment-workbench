@@ -8,7 +8,7 @@ Run `scripts/test.ps1`:
 - Read-only preflight tool checks and child-before-parent removal ordering.
 - Native-action dispatch: zero item mutation on enqueue; all transfers before assembly; generic rail outcomes; dependency-first installs; duplicate start/stale cart rejection.
 - Cancellation after a simulated native transfer retains the moved item and does not assemble remaining parts.
-- Static contracts prohibit direct inventory/attachment mutations in the workbench and confirm the instant server endpoint is absent.
+- Static contracts prohibit direct client inventory/attachment mutations and require the narrow server authority handler.
 - Actual game JSON translation reader loads **60 EN + 60 KO keys**.
 
 Mocks do not prove native Java inventory replication or visible character motion.
@@ -52,7 +52,7 @@ Known bounded omission: active/stateful underbarrel removal/replacement remains 
 - Source: scripts/test.ps1 PASS, including no-window tick progression, close preservation, minus/double-click, railing child-first removal, native cancellation, delayed result and missing-result failure.
 - Installed-source: scripts/test-installed.ps1 PASS (440 definitions, 42 upstream file hashes, 6 target weapons; native timed-action completion and universal refunds under mocks).
 - UI: draw/callback tests only; no fresh rendered screenshot. The visual-verdict skill is not installed.
-- Runtime: current console has no attributable GMAW exception. Installation-only motion root cause is not proven; the intermediate dispatcher has been removed, completion is observed independently of UI, and [GMAW] operation/outcome diagnostics are now available. New in-game verification remains required, including multiplayer and game restart.
+- Runtime: a dedicated server authority path now logs `[GMAW] server applied` or `[GMAW] server rejected` for each completed operation. New in-game verification remains required, including multiplayer and game restart.
 
 ## Split compatibility browser (2026-09-09)
 

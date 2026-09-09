@@ -28,7 +28,22 @@ end
 
 -- Native helpers may enqueue equips as well as the actual upgrade. Track only
 -- newly added actions; never clear/replace unrelated player work.
-local function enqueue(batch, callback)
+local function issueAuthority(batch, op)
+    if not (isClient and isClient() and sendClientCommand) then return end
+    sendClientCommand(batch.player, "GMAW", "apply", {
+        kind = op.kind,
+        weaponID = batch.weaponID,
+        partID = op.id,
+        slot = op.slot,
+        fullType = op.fullType,
+        generic = op.generic and true or false,
+    })
+end
+
+-- Keep the exact vanilla actions for movement, equipment and timing. In
+-- multiplayer their local completion is suppressed: the server receives the
+-- completed operation and becomes the sole owner of attachment mutation.
+local function enqueue(batch, callback, authority)
     local queue = ISTimedActionQueue.getTimedActionQueue(batch.player).queue
     local before = {}
     for _, action in ipairs(queue) do before[action] = true end
@@ -37,9 +52,14 @@ local function enqueue(batch, callback)
         if not before[action] then
             batch.issued = true
             batch.handles[action] = true
+            local ownsMutation = authority and authority.matches(action)
+            if ownsMutation and isClient and isClient() then
+                action.complete = function() return true end
+            end
             local perform, stop, cancel = action.perform, action.stop, action.forceCancel
             action.perform = function(self, ...)
                 if perform then perform(self, ...) end
+                if ownsMutation then issueAuthority(batch, authority) end
                 batch.handles[self] = "completed"
             end
             action.stop = function(self, ...)
@@ -100,7 +120,10 @@ function A.advance(player, batch)
                 or M.permanent(part) or Required.IsRemovalBlocked(weapon, part:getFullType()) then
                 batch.error = "Stopped"; return
             end
-            enqueue(batch, function() ISInventoryPaneContextMenu.onRemoveUpgradeWeapon(weapon, part, player) end)
+            enqueue(batch, function() ISInventoryPaneContextMenu.onRemoveUpgradeWeapon(weapon, part, player) end, {
+                kind = "detach", id = op.id, slot = op.slot,
+                matches = function(action) return action.weapon == weapon and action.partType == op.slot end,
+            })
         else
             local part = op.refundType and inv:getFirstTypeRecurse(op.refundType) or inv:getItemById(op.id)
             if not part or part:isBroken() or weapon:getWeaponPart(op.slot)
@@ -115,10 +138,16 @@ function A.advance(player, batch)
                     if tool then ISInventoryPaneContextMenu.equipWeapon(tool, true, false, player:getPlayerNum()) end
                     -- Gunworks extends the native constructor with the outcome.
                     ISTimedActionQueue.add(ISUpgradeWeapon:new(player, weapon, part, op.fullType))
-                end)
+                end, {
+                    kind = "install", id = op.id, slot = op.slot, fullType = op.fullType, generic = true,
+                    matches = function(action) return action.weapon == weapon and action.part == part end,
+                })
             else
                 if not part:canAttach(player, weapon) then batch.error = "Tools"; return end
-                enqueue(batch, function() ISInventoryPaneContextMenu.onUpgradeWeapon(weapon, part, player) end)
+                enqueue(batch, function() ISInventoryPaneContextMenu.onUpgradeWeapon(weapon, part, player) end, {
+                    kind = "install", id = op.id, slot = op.slot, fullType = op.fullType,
+                    matches = function(action) return action.weapon == weapon and action.part == part end,
+                })
             end
         end
     end

@@ -2,10 +2,10 @@
 
 The user supersedes instant atomic mutation with the normal inventory-transfer and weapon-upgrade workflow.
 
-1. Keep compatibility/cart planning and read-only preflight. Remove custom instant mutation and its network endpoint.
+1. Keep compatibility/cart planning and read-only preflight. Remove custom instant client mutation; retain a narrow server completion endpoint that revalidates each operation.
 2. Revalidate the selected cart, then queue native inventory transfers for the gun and parts. Tools remain required in player inventory.
 3. Dispatch native removal and upgrade actions lazily, after prior actions complete; equip parts/tools using the existing GoM context handlers. Generic rails use the Gunworks outcome argument on ISUpgradeWeapon.
-4. Use native server-authoritative timed-action processing, never client-side attach/detach or manual inventory increments.
+4. Use native timed-action movement and duration. In multiplayer, send only the completed operation IDs to the server; never attach/detach or change inventories on the client.
 5. Cancellation/races stop remaining actions; completed transfers and upgrades persist like vanilla, not atomic rollback.
 6. Regression tests: zero mutation on enqueue, transfer-first order, native action dispatch, generic outcomes, stale cart rejection, pending protection, partial cancellation.
 

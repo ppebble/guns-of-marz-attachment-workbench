@@ -28,4 +28,4 @@ end
 function instanceof(obj, name) return obj and obj.class == name end
 function isClient() return false end
 function isServer() return false end
-Events = { OnKeyStartPressed={Add=function(callback) gmawCancelKey=callback end}, OnTick = {Add=function(callback) gmawTick=callback end}, OnClientCommand = { Add = function() end } }
+Events = { OnKeyStartPressed={Add=function(callback) gmawCancelKey=callback end}, OnTick = {Add=function(callback) gmawTick=callback end}, OnClientCommand = { Add = function(callback) gmawServerCommand=callback end } }
