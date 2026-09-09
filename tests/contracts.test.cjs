@@ -48,4 +48,6 @@ assert.match(workshop, /^version=1$/m);
 assert.match(workshop, /^title=Guns of Marz: Attachment Workbench$/m);
 assert.match(workshop, /sharedfiles\/filedetails\/\?id=3722134990/);
 assert.doesNotMatch(workshop, /\{PREVIEW_IMAGE_URL\}/);
+assert.match(workshop, /\[h2\]More Project Zomboid Mods by ask13\[\/h2\]/);
+assert.match(workshop, /https:\/\/github\.com\/ppebble\/project-zomboid-modding/);
 console.log(`PASS manifests, source boundary, bounded access, EN/KO ${Object.keys(en).length} keys`);

@@ -43,5 +43,10 @@ description=Guns of Marz firearms and parts belong to their respective original 
 description=
 description=[h2]Feedback[/h2]
 description=Please include the firearm name, attachment name, and a screenshot when reporting a missing or incorrect compatibility entry.
+description=
+description=[hr][/hr]
+description=
+description=[h2]More Project Zomboid Mods by ask13[/h2]
+description=Browse other focused Build 42 tools and compatibility mods in the [url=https://github.com/ppebble/project-zomboid-modding]Project Zomboid Mods & Tools catalog[/url].
 tags=Build 42;Weapons
 visibility=public

@@ -46,6 +46,11 @@ Guns of Marz firearms and parts belong to their respective original mod authors.
 
 [h2]Feedback[/h2]
 Please include the firearm name, attachment name, and a screenshot when reporting a missing or incorrect compatibility entry.
+
+[hr][/hr]
+
+[h2]More Project Zomboid Mods by ask13[/h2]
+Browse other focused Build 42 tools and compatibility mods in the [url=https://github.com/ppebble/project-zomboid-modding]Project Zomboid Mods & Tools catalog[/url].
 ```
 
 ## Publishing notes (not part of the Workshop description)
