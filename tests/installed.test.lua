@@ -38,6 +38,13 @@ M.cache = nil
 local m4 = instanceItem("MarzGuns.M4A1")
 assert(M.supported(m4))
 local c = M.candidates(m4)
+-- MountOn is authoritative even when a GoM weapon lacks matching visual
+-- ModelWeaponPart metadata; this mirrors vanilla upgrade availability.
+local unmodelled = item("MarzGuns.TestUnmodelledRail", 9001, "RailLeft")
+unmodelled.getModID = function() return "GunsOfMarz" end
+unmodelled.getMountOn = function() return javaList({"MarzGuns.M4A1"}) end
+M.cache[unmodelled:getFullType()] = unmodelled
+assert(M.candidates(m4)[unmodelled:getFullType()], "GoM MountOn rail must not be hidden by ModelWeaponPart")
 for _, slot in ipairs({"Up","Down","Left","Right"}) do
     local e = assert(c["MarzGuns.Picatinny_Rail_" .. slot], "missing M4 rail " .. slot)
     assert(e.consume == "MarzGuns.Picatinny_Rail", "generic rail mapping")

@@ -75,7 +75,7 @@ for _,p in ipairs(crate.values) do p.container=crate end
 assert(A.begin(player,target,"",{"scope"},signature))
 gmawTick()
 local transfer=q[1]; transfer.source:Remove(transfer.item);inv:AddItem(transfer.item);transfer.item.container=inv
-while #q>0 do table.remove(q) end
+transfer:stop(); while #q>0 do table.remove(q) end
 gmawTick()
 assert(A.poll(player)=="Stopped" and inv:containsID(90) and not gun.parts.Scope)
 -- A completed motion is not success until authoritative item changes are visible.

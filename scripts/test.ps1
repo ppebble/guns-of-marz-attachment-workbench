@@ -12,6 +12,7 @@ $files = @((Join-Path $repo 'tests/bootstrap.lua'))
 foreach ($name in @('Model','Planner','Sources','Batch','Presentation','Authority')) { $files += Join-Path $lua "shared/GMAW/$name.lua" }
 $files += Join-Path $repo 'tests/ui-bootstrap.test.lua'
 $files += Join-Path $repo 'tests/actions-bootstrap.test.lua'
+$files += Join-Path $lua 'shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $lua 'client/GMAW/Actions.lua'
 $files += Join-Path $lua 'client/GMAW/Window.lua'
 $files += Join-Path $lua 'server/GMAW/Server.lua'

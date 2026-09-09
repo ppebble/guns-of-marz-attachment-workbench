@@ -79,16 +79,17 @@ function M.modelTypes(weapon)
 end
 
 function M.candidates(weapon)
-    local allowed, out, slots = M.modelTypes(weapon), {}, {}
+    local out, slots = {}, {}
     for _, slot in ipairs(M.slots) do slots[slot] = true end
     for fullType, part in pairs(M.catalog()) do
         local mounts, mountOK = part:getMountOn(), false
         for i = 0, mounts:size() - 1 do
             if mounts:get(i) == weapon:getFullType() then mountOK = true end
         end
-        -- GoM model declarations rule out invisible/physically unsupported slots.
-        -- Vanilla supports non-modelled upgrades through explicit MountOn.
-        if slots[part:getPartType()] and mountOK and (weapon:getModID() == "pz-vanilla" or allowed[fullType]) then
+        -- MountOn is the native compatibility contract used by the vanilla
+        -- upgrade menu. ModelWeaponPart is visual metadata only: filtering by
+        -- it hid valid left/right/down rails and valid sights on GoM weapons.
+        if slots[part:getPartType()] and mountOK then
             out[fullType] = { part = part, slot = part:getPartType(),
                 all = Required.Dependencies[fullType] or {},
                 any = Required.AnyDependencies[fullType] or {},

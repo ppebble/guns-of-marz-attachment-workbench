@@ -1,3 +1,4 @@
+require "GMAW/NativeCompletion"
 require "GMAW/Authority"
 local Authority = require "GMAW/Authority"
 

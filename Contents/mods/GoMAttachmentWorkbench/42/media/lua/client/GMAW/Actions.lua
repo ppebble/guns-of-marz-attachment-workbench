@@ -1,7 +1,9 @@
 require "ISUI/ISInventoryPaneContextMenu"
 require "ISUI/ISInventoryPage"
 require "TimedActions/ISInventoryTransferUtil"
+require "TimedActions/ISBaseTimedAction"
 require "WeaponSystems/Hooks/WeaponUpgradeHooks"
+require "GMAW/NativeCompletion"
 require "MarzWeapons/ISUI/RequiredToolVisualEquipt"
 local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
@@ -26,24 +28,45 @@ local function hasEntries(items)
     return false
 end
 
--- Native helpers may enqueue equips as well as the actual upgrade. Track only
--- newly added actions; never clear/replace unrelated player work.
+-- Movement/equipment still use vanilla actions.  The final mutation on an
+-- MP client is a real timed action that explicitly sends the request at the
+-- end of its animation. Native network actions instead mutate in complete().
 local function issueAuthority(batch, op)
-    if not (isClient and isClient() and sendClientCommand) then return end
     sendClientCommand(batch.player, "GMAW", "apply", {
-        kind = op.kind,
-        weaponID = batch.weaponID,
-        partID = op.id,
-        slot = op.slot,
-        fullType = op.fullType,
-        generic = op.generic and true or false,
+        kind = op.kind, weaponID = batch.weaponID, partID = op.id,
+        slot = op.slot, fullType = op.fullType, generic = op.generic and true or false,
     })
 end
 
--- Keep the exact vanilla actions for movement, equipment and timing. In
--- multiplayer their local completion is suppressed: the server receives the
--- completed operation and becomes the sole owner of attachment mutation.
-local function enqueue(batch, callback, authority)
+local AuthorityAction = ISBaseTimedAction:derive("ISGMAWAuthorityAction")
+function AuthorityAction:isValid()
+    return self.character and not self.character:isDead()
+end
+function AuthorityAction:start()
+    self:setActionAnim("Craft")
+    if self.character.setJobType then self.character:setJobType(getText("IGUI_GMAW_Title")) end
+end
+function AuthorityAction:update()
+    if self.character.setJobDelta then self.character:setJobDelta(self:getJobDelta()) end
+end
+function AuthorityAction:stop()
+    if self.character.setJobDelta then self.character:setJobDelta(0) end
+    ISBaseTimedAction.stop(self)
+end
+function AuthorityAction:perform()
+    if self.character.setJobDelta then self.character:setJobDelta(0) end
+    issueAuthority(self.batch, self.op)
+    ISBaseTimedAction.perform(self)
+end
+function AuthorityAction:new(player, batch, op)
+    local o = ISBaseTimedAction.new(self, player)
+    o.character, o.batch, o.op = player, batch, op
+    o.stopOnWalk, o.stopOnRun = true, true
+    o.maxTime = player.isTimedActionInstant and player:isTimedActionInstant() and 1 or 50
+    return o
+end
+
+local function enqueue(batch, callback)
     local queue = ISTimedActionQueue.getTimedActionQueue(batch.player).queue
     local before = {}
     for _, action in ipairs(queue) do before[action] = true end
@@ -52,26 +75,31 @@ local function enqueue(batch, callback, authority)
         if not before[action] then
             batch.issued = true
             batch.handles[action] = true
-            local ownsMutation = authority and authority.matches(action)
-            if ownsMutation and isClient and isClient() then
-                action.complete = function() return true end
-            end
-            local perform, stop, cancel = action.perform, action.stop, action.forceCancel
-            action.perform = function(self, ...)
-                if perform then perform(self, ...) end
-                if ownsMutation then issueAuthority(batch, authority) end
-                batch.handles[self] = "completed"
-            end
+            -- Observe cancellation without replacing native perform callbacks.
+            -- The server Boolean return contract belongs to complete(), not perform().
+            local stop, cancel = action.stop, action.forceCancel
             action.stop = function(self, ...)
                 batch.cancelled = true
+                batch.handles[self] = "stopped"
                 if stop then return stop(self, ...) end
             end
             action.forceCancel = function(self, ...)
                 batch.cancelled = true
+                batch.handles[self] = "stopped"
                 if cancel then return cancel(self, ...) end
             end
         end
     end
+end
+
+local function enqueueAssembly(batch, op, vanilla)
+    enqueue(batch, function()
+        if isClient() then
+            ISTimedActionQueue.add(AuthorityAction:new(batch.player, batch, op))
+        else
+            vanilla()
+        end
+    end)
 end
 
 function A.busy(player)
@@ -100,16 +128,21 @@ function A.advance(player, batch)
         local source = S.scan(player).byID[op.id]
         if not source or source.key ~= op.key then batch.error = "Stale"; return end
         if source.world then
-            -- Populate the vanilla floor view; it supplies the source container
-            -- to the native transfer action without moving the world item.
-            local loot = getPlayerLoot(player:getPlayerNum())
-            if loot then loot:refreshBackpacks() end
+            -- A world item has no item container.  Use the same branch the
+            -- vanilla context menu uses so the client sends the authoritative
+            -- floor pickup transaction instead of rejecting it as stale.
+            enqueue(batch, function()
+                ISInventoryPaneContextMenu.transferIfNeeded(player, source.world)
+            end)
+        else
+            -- Keep the scanner's resolved container: this covers furniture,
+            -- vehicle trunks and items inside cart/bag inventories.
+            local container = source.container or source.item:getContainer()
+            if not container then batch.error = "Stale"; return end
+            enqueue(batch, function()
+                ISTimedActionQueue.add(ISInventoryTransferUtil.newInventoryTransferAction(player, source.item, container, inv))
+            end)
         end
-        local container = source.item:getContainer()
-        if not container then batch.error = "Stale"; return end
-        enqueue(batch, function()
-            ISTimedActionQueue.add(ISInventoryTransferUtil.newInventoryTransferAction(player, source.item, container, inv))
-        end)
     else
         if not weapon or not M.supported(weapon) then batch.error = "Stale"; return end
         if not batch.startedAssembly and M.fingerprint(weapon) ~= batch.expected then batch.error = "Stale"; return end
@@ -120,10 +153,9 @@ function A.advance(player, batch)
                 or M.permanent(part) or Required.IsRemovalBlocked(weapon, part:getFullType()) then
                 batch.error = "Stopped"; return
             end
-            enqueue(batch, function() ISInventoryPaneContextMenu.onRemoveUpgradeWeapon(weapon, part, player) end, {
-                kind = "detach", id = op.id, slot = op.slot,
-                matches = function(action) return action.weapon == weapon and action.partType == op.slot end,
-            })
+            enqueueAssembly(batch, op, function()
+                ISInventoryPaneContextMenu.onRemoveUpgradeWeapon(weapon, part, player)
+            end)
         else
             local part = op.refundType and inv:getFirstTypeRecurse(op.refundType) or inv:getItemById(op.id)
             if not part or part:isBroken() or weapon:getWeaponPart(op.slot)
@@ -131,23 +163,19 @@ function A.advance(player, batch)
                 or Exclusives.IsBlockedByExclusive(weapon, op.fullType) then batch.error = "Stopped"; return end
             if op.generic then
                 if not Universal.CanInstallOutcome(weapon, op.fullType, player) then batch.error = "Tools"; return end
-                enqueue(batch, function()
+                enqueueAssembly(batch, op, function()
                     ISInventoryPaneContextMenu.transferIfNeeded(player, part)
                     ISInventoryPaneContextMenu.equipWeapon(part, false, false, player:getPlayerNum())
                     local tool = MarzGuns_AttachAndDetach.getPrimaryTool(player, op.slot)
                     if tool then ISInventoryPaneContextMenu.equipWeapon(tool, true, false, player:getPlayerNum()) end
                     -- Gunworks extends the native constructor with the outcome.
                     ISTimedActionQueue.add(ISUpgradeWeapon:new(player, weapon, part, op.fullType))
-                end, {
-                    kind = "install", id = op.id, slot = op.slot, fullType = op.fullType, generic = true,
-                    matches = function(action) return action.weapon == weapon and action.part == part end,
-                })
+                end)
             else
                 if not part:canAttach(player, weapon) then batch.error = "Tools"; return end
-                enqueue(batch, function() ISInventoryPaneContextMenu.onUpgradeWeapon(weapon, part, player) end, {
-                    kind = "install", id = op.id, slot = op.slot, fullType = op.fullType,
-                    matches = function(action) return action.weapon == weapon and action.part == part end,
-                })
+                enqueueAssembly(batch, op, function()
+                    ISInventoryPaneContextMenu.onUpgradeWeapon(weapon, part, player)
+                end)
             end
         end
     end
@@ -168,7 +196,7 @@ function A.tick()
         local waiting, interrupted = false, batch.cancelled or player:isDead() or player:pressedCancelAction()
         for action, state in pairs(batch.handles) do
             if ISTimedActionQueue.hasAction(action) then waiting = true
-            elseif state ~= "completed" then interrupted = true end
+            elseif state == "stopped" then interrupted = true end
         end
         if interrupted or batch.error then
             settle(player, batch, batch.error or "Stopped")
@@ -303,4 +331,7 @@ Events.OnKeyStartPressed.Add(function(key)
     if player and A.active[player] then A.active[player].cancelled = true end
 end)
 Events.OnTick.Add(A.tick)
+-- PZ's loader can cache require() as nil for client scripts already being
+-- loaded. Publish the API explicitly so Window never holds that nil value.
+GMAWActions = A
 return A

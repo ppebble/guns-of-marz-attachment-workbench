@@ -5,7 +5,9 @@ local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
 local S = require "GMAW/Sources"
 local V = require "GMAW/Presentation"
-local A = require "GMAW/Actions"
+require "GMAW/Actions"
+-- Do not retain require()'s transient nil during PZ client-script loading.
+local A = GMAWActions
 local W = ISCollapsableWindow:derive("GMAWWindow")
 GMAWWindows = GMAWWindows or {}
 local function tr(key) return getText("IGUI_GMAW_" .. key) end
@@ -303,6 +305,10 @@ function W:update()
         self.toolRefreshFrames = 0
         self:refreshTools()
     end
+    -- A stale/pre-reload window can outlive the Actions script briefly.
+    -- Rebind the published API and skip this frame rather than error-looping.
+    A = GMAWActions or A
+    if not A then return end
     local code = A.poll(self.player)
     if code then self:result(code)
     elseif A.busy(self.player) then

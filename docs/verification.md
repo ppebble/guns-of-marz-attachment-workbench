@@ -27,9 +27,12 @@ Run `scripts/test-installed.ps1`:
 
 `scripts/install-local.ps1` generates `evidence/local-install.json` with destination and source-matching file hashes. This proves deployed files only. It does not enable the mod in a preset or prove the game loaded it.
 
-## In-game — NOT VERIFIED
+## In-game — partially verified
 
-No fresh world, full restart, screenshot, client/server session or Steam publication evidence has been collected. Do not publish or label this build fully verified yet.
+The maintainer reports that server testing was completed on 2026-09-09. No
+server log, save, screenshot, or test scenario transcript is stored in this
+repository, so this records the completed test without over-claiming a fully
+reproducible runtime evidence set. Steam publication remains separate.
 
 - [ ] Fresh single-player: GoM + Gunworks + workbench only; open window without Lua errors.
 - [ ] Korean and English revised icon/card layout, tooltip wrapping, supported slots, small resolution.
@@ -43,7 +46,8 @@ No fresh world, full restart, screenshot, client/server session or Steam publica
 - [ ] Host + separate client: nearby weapon ownership and floor/vehicle replication.
 - [ ] Second player removes a chosen part: pre-start cart rejected; mid-work remaining actions stop without undoing completed operations.
 - [ ] Two competing applies, closing/reopening pending window, split-screen response isolation.
-- [ ] Dedicated server: safehouse, locked containers, authoritative inventory, reconnect consistency.
+- [x] Server test completed (maintainer report, 2026-09-09).
+- [ ] Dedicated server regression record: safehouse, locked containers, authoritative inventory, reconnect consistency.
 
 Known bounded omission: active/stateful underbarrel removal/replacement remains fail-closed. The previous custom publication/rollback path no longer exists. Test native cancellation, tool equipping, assembly motion and host/client synchronization after a full restart.
 
@@ -69,3 +73,10 @@ Known bounded omission: active/stateful underbarrel removal/replacement remains 
 - Source tests prove an otherwise tool-gated compatible part remains selectable when a working required tool is in an accessible nearby container; the existing action test proves that tool transfers before parts.
 - Source UI test verifies an offscreen cart row produces no draw calls, preventing it from painting above its scrolling viewport.
 - In-game visual verification remains pending.
+
+## Server test (2026-09-09)
+
+- Maintainer-reported server test completed.
+- This claim is intentionally narrower than a complete dedicated-server
+  regression record: retain any future server log, scenario, or screenshot
+  with the release notes if one is needed for troubleshooting.

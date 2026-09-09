@@ -46,6 +46,17 @@ function S.scan(player)
                         end
                     end
                 end
+                -- Carts and other movable storage can be static-moving objects,
+                -- not square objects.  Vanilla inventory discovery scans both.
+                local statics = square.getStaticMovingObjects and square:getStaticMovingObjects()
+                if statics then
+                    for i = 0, statics:size() - 1 do
+                        local object = statics:get(i)
+                        if object and object.getContainer then
+                            visit(object:getContainer(), "2:static:" .. pos .. ":" .. i, "Furniture", 0)
+                        end
+                    end
+                end
                 local vehicle = square:getVehicleContainer()
                 if vehicle and not seenVehicles[vehicle] then
                     seenVehicles[vehicle] = true

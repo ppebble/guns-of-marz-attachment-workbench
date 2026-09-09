@@ -19,9 +19,13 @@ local vehicle = { getId = function() return 33 end, getPartCount = function() re
     getPartByIndex = function() return { getItemContainer = function() return vehicleInv end } end }
 function square:getWorldObjects() return javaList({}) end
 function square:getObjects() return javaList({}) end
+function square:getStaticMovingObjects() return javaList({}) end
 function square:getVehicleContainer() return nil end
+local cartStaticInv = inventory({ item("cart-static-part", 32) })
+local cartStatic = { getContainer = function() return cartStaticInv end }
 function neighbor:getWorldObjects() return javaList({ world }) end
 function neighbor:getObjects() return javaList({ object(furniture), lockObject }) end
+function neighbor:getStaticMovingObjects() return javaList({ cartStatic }) end
 function neighbor:getVehicleContainer() return vehicle end
 local requested = 0
 function getCell() return { getGridSquare = function(_, x, y, z)
@@ -33,8 +37,8 @@ end } end
 local player = { getInventory = function() return inv end, getCurrentSquare = function() return square end }
 locked = true
 local scan = S.scan(player)
-assert(requested == 9 and #scan.entries == 4)
-assert(#scan.byType.part == 3 and not scan.byID[14])
+assert(requested == 9 and #scan.entries == 5)
+assert(#scan.byType.part == 3 and scan.byID[32] and not scan.byID[14])
 assert(scan.entries[1].item:getID() == 10 and scan.entries[2].item == floor)
 access = false; scan = S.scan(player); assert(not scan.byID[13])
 reachable = false; scan = S.scan(player); assert(#scan.entries == 1)
