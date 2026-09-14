@@ -4,7 +4,9 @@ require "TimedActions/ISInventoryTransferUtil"
 require "TimedActions/ISBaseTimedAction"
 require "WeaponSystems/Hooks/WeaponUpgradeHooks"
 require "GMAW/NativeCompletion"
-require "MarzWeapons/ISUI/RequiredToolVisualEquipt"
+if getActivatedMods():contains("GunsOfMarz") then
+    require "MarzWeapons/ISUI/RequiredToolVisualEquipt"
+end
 local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
 local S = require "GMAW/Sources"
@@ -13,9 +15,10 @@ local Universal = require "WeaponSystems/Utils/UniversalAttachment"
 local Required = require "WeaponSystems/Utils/RequiredAttachment"
 local Exclusives = require "WeaponSystems/Utils/UpgradeExclusives"
 local A = { active = {}, results = {} }
+local T = require "GMAW/Attachments"
 
-local function collectTools(scan, requested, slot)
-    for _, tags in ipairs(M.toolGroups(slot)) do
+local function collectTools(scan, requested, slot, part, removing)
+    for _, tags in ipairs(M.toolGroups(slot, part, removing)) do
         local source = S.firstWorkingTag(scan, tags)
         if not source then return nil end
         requested[source.item:getID()] = source
@@ -39,6 +42,9 @@ local function issueAuthority(batch, op)
 end
 
 local AuthorityAction = ISBaseTimedAction:derive("ISGMAWAuthorityAction")
+-- Deliberately no complete(): B42 LuaTimedActionNew recognizes this as a
+-- custom remote-sync action. perform() sends our command; the server handler
+-- owns mutation. Adding complete() would opt into a different native net path.
 function AuthorityAction:isValid()
     return self.character and not self.character:isDead()
 end
@@ -154,7 +160,11 @@ function A.advance(player, batch)
                 batch.error = "Stopped"; return
             end
             enqueueAssembly(batch, op, function()
-                ISInventoryPaneContextMenu.onRemoveUpgradeWeapon(weapon, part, player)
+                if T.owner(part) then
+                    ISTimedActionQueue.add(T.action(player, weapon, part, true))
+                else
+                    ISInventoryPaneContextMenu.onRemoveUpgradeWeapon(weapon, part, player)
+                end
             end)
         else
             local part = op.refundType and inv:getFirstTypeRecurse(op.refundType) or inv:getItemById(op.id)
@@ -166,15 +176,25 @@ function A.advance(player, batch)
                 enqueueAssembly(batch, op, function()
                     ISInventoryPaneContextMenu.transferIfNeeded(player, part)
                     ISInventoryPaneContextMenu.equipWeapon(part, false, false, player:getPlayerNum())
-                    local tool = MarzGuns_AttachAndDetach.getPrimaryTool(player, op.slot)
+                    local tool
+                    if getActivatedMods():contains("GunsOfMarz") then
+                        tool = MarzGuns_AttachAndDetach.getPrimaryTool(player, op.slot)
+                    else
+                        tool = player:getInventory():getFirstTagEvalRecurse(ItemTag.SCREWDRIVER,
+                            function(item) return not item:isBroken() end)
+                    end
                     if tool then ISInventoryPaneContextMenu.equipWeapon(tool, true, false, player:getPlayerNum()) end
                     -- Gunworks extends the native constructor with the outcome.
                     ISTimedActionQueue.add(ISUpgradeWeapon:new(player, weapon, part, op.fullType))
                 end)
             else
-                if not part:canAttach(player, weapon) then batch.error = "Tools"; return end
+                if not T.canAttach(part, player, weapon) then batch.error = "Tools"; return end
                 enqueueAssembly(batch, op, function()
-                    ISInventoryPaneContextMenu.onUpgradeWeapon(weapon, part, player)
+                    if T.owner(part) then
+                        ISTimedActionQueue.add(T.action(player, weapon, part, false))
+                    else
+                        ISInventoryPaneContextMenu.onUpgradeWeapon(weapon, part, player)
+                    end
                 end)
             end
         end
@@ -252,12 +272,12 @@ function A.begin(player, target, expected, choices, signature)
     if #plan == 0 or P.signature(plan) ~= signature then return nil, "Stale" end
     local requestedTools = {}
     for _, step in ipairs(plan) do
-        if not collectTools(scan, requestedTools, step.slot) then return nil, "Tools" end
+        if not collectTools(scan, requestedTools, step.slot, catalog[step.fullType].part) then return nil, "Tools" end
     end
     local order, why = B.preflight(player, weapon, catalog, plan, nil, hasEntries(requestedTools))
     if not order then return nil, why end
     for _, detached in ipairs(order.detached) do
-        if not collectTools(scan, requestedTools, detached.slot) then return nil, "Tools" end
+        if not collectTools(scan, requestedTools, detached.slot, detached.part, true) then return nil, "Tools" end
     end
     local batch = {player=player,weapon=weapon,weaponID=weapon:getID(),expected=expected,
         operations={},handles={},index=1,final={}}
@@ -303,7 +323,7 @@ function A.remove(player, target, expected, slot)
     if not order then return nil, reason end
     local requestedTools = {}
     for _, detached in ipairs(order.detached) do
-        if not collectTools(scan, requestedTools, detached.slot) then return nil, "Tools" end
+        if not collectTools(scan, requestedTools, detached.slot, detached.part, true) then return nil, "Tools" end
     end
     local batch = {player=player,weapon=weapon,weaponID=weapon:getID(),expected=expected,
         operations={},handles={},index=1,final={}}

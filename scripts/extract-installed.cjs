@@ -22,6 +22,7 @@ for (const relative of fs.readdirSync(base, {recursive:true}).filter(p => p.ends
     records[`${module}.${match[1]}`] = {
       fullType:`${module}.${match[1]}`, slot:field('PartType') || '', type:field('ItemType') || '',
       mounts:(field('MountOn')||'').split(';').map(s=>s.replaceAll('"','').trim()).filter(Boolean),
+      ammo:field('AmmoType') || '', swing:field('SwingAnim') || '',
       models:[...body.matchAll(/\bModelWeaponPart\s*=\s*([^\s,]+)/g)].map(m=>m[1]),
     };
   }
@@ -30,10 +31,11 @@ const targets=['M4A1','MOSSBERG_590','BENELLI_M4','M92FS','M1911','DEAGLE'];
 for (const name of targets) if(!records[`MarzGuns.${name}`]) throw Error(`Missing ${name}`);
 const quote = value => JSON.stringify(value);
 const array = values => '{'+values.map(quote).join(',')+'}';
-let lua = 'installedRecords = {\n';
+const modID = /^id=(.+)$/m.exec(fs.readFileSync(path.join(gom, 'mod.info'), 'utf8'))[1].trim();
+let lua = 'installedModID = ' + quote(modID) + '\ninstalledRecords = {\n';
 for (const key of Object.keys(records).sort()) {
   const r=records[key];
-  lua += `[${quote(key)}]={fullType=${quote(key)},slot=${quote(r.slot)},type=${quote(r.type)},mounts=${array(r.mounts)},models=${array(r.models)}},\n`;
+  lua += `[${quote(key)}]={fullType=${quote(key)},slot=${quote(r.slot)},type=${quote(r.type)},mounts=${array(r.mounts)},models=${array(r.models)},ammo=${quote(r.ammo)},swing=${quote(r.swing)}},\n`;
 }
 lua+='}\n';
 fs.mkdirSync(path.join(root,'evidence'), {recursive:true});

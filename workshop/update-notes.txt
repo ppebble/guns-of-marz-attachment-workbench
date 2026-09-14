@@ -1,0 +1,11 @@
+Guns of Marz: Attachment Workbench update
+
+- Added compatibility for the bundled Guns of Marz Old Version. Enable only one GoM version.
+- Added optional attachment integration for Improvised Silencers and Simple Suppressors.
+- Fixed workbench access for vanilla firearms overridden by Simple Suppressors, including M16 and JS shotguns. User confirmed the latest context-menu fix in game.
+- Corrected self-exclusion handling in attachment planning.
+
+Known limitations:
+- Simple Suppressors workbench installation remains reported unavailable; use its own context menu.
+- Simple Suppressors visual mappings for GoM firearms are not included.
+- Full remote-client multiplayer verification remains separate from source and isolated server tests.

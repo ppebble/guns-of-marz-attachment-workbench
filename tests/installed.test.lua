@@ -2,14 +2,14 @@ local M, P = require "GMAW/Model", require "GMAW/Planner"
 local scripts, sequence = {}, 1000
 ItemType = { WEAPON_PART = "base:weaponpart" }
 ItemTag = { SCREWDRIVER = "screwdriver", WRENCH = "wrench", PIPE_WRENCH = "pipe_wrench" }
-function getActivatedMods() return { contains = function(_, id) return id == "GunsOfMarz" end } end
+function getActivatedMods() return { contains = function(_, id) return id == installedModID end } end
 function instanceItem(fullType)
     local r = installedRecords[fullType]
     if not r then return nil end
     sequence = sequence + 1
     local it = item(fullType, sequence, r.slot)
     it.class = r.type == "base:weaponpart" and "WeaponPart" or "HandWeapon"
-    function it:getModID() return "GunsOfMarz" end
+    function it:getModID() return installedModID end
     function it:getMountOn() return javaList(r.mounts) end
     function it:isRanged() return true end
     function it:getName() return fullType end
@@ -30,7 +30,7 @@ end
 for _, r in pairs(installedRecords) do
     local record = r
     scripts[#scripts+1] = { getFullName = function() return record.fullType end,
-        getModID = function() return "GunsOfMarz" end,
+        getModID = function() return installedModID end,
         getObsolete = function() return false end, isItemType = function(_, kind) return kind == record.type end }
 end
 function getScriptManager() return { getAllItems = function() return javaList(scripts) end } end
@@ -41,7 +41,7 @@ local c = M.candidates(m4)
 -- MountOn is authoritative even when a GoM weapon lacks matching visual
 -- ModelWeaponPart metadata; this mirrors vanilla upgrade availability.
 local unmodelled = item("MarzGuns.TestUnmodelledRail", 9001, "RailLeft")
-unmodelled.getModID = function() return "GunsOfMarz" end
+unmodelled.getModID = function() return installedModID end
 unmodelled.getMountOn = function() return javaList({"MarzGuns.M4A1"}) end
 M.cache[unmodelled:getFullType()] = unmodelled
 assert(M.candidates(m4)[unmodelled:getFullType()], "GoM MountOn rail must not be hidden by ModelWeaponPart")
@@ -68,6 +68,7 @@ for gun, mount in pairs({M92FS="Beretta_Mount",M1911="Colt_Mount",DEAGLE="Heavy_
     end
 end
 -- Exercise the actual read-only GoM tool callback, including broken tools.
+if installedModID == "GunsOfMarz" then
 local tools = {}
 local inv = { getFirstTagEvalRecurse = function(_, tag, predicate)
     local it = tools[tag]; if it and predicate(it) then return it end
@@ -83,7 +84,8 @@ part = item("barrel", 1, "Barrel")
 assert(not MarzGuns_AttachAndDetach.requiredTools(player, m4, part))
 tools.pipe_wrench = { isBroken = function() return false end }
 assert(MarzGuns_AttachAndDetach.requiredTools(player, m4, part))
--- Current GoM ownership only; a third-party firearm in Base is not vanilla.
+end
+-- GoM ownership only; a third-party firearm in Base is not vanilla.
 m4.getModID = function() return "OtherGunMod" end
 assert(not M.supported(m4))
 -- Vanilla is supported only under current GoM, including non-modelled upgrades.

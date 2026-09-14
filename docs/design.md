@@ -16,7 +16,7 @@ The newest user instruction supersedes instant atomic batches. Apply is now **St
 
 - Three columns: native weapon icons; supported slot cards with actual installed icon and distinct queued preview; selected-slot options (missing compatible parts grey). Current instruction supersedes the old all-slots/X design.
 - Translation files use B42 `Translate/LANG/IG_UI.json`. Native JSON-reader tests load 60 keys in EN and KO; no hard-coded English fallback.
-- Only current GoM and vanilla definitions under enabled GoM are allowed; legacy and other mod owners are excluded.
+- Current GoM or the bundled Old Version (exactly one active) and vanilla firearms are allowed. Parts from explicitly enabled ImprovisedSilencers and SimpleSuppressors are also allowed, without admitting their firearms or other addon owners. Gunworks is the manifest dependency; the runtime gate requires one GoM variant. See compatibility.md for legacy and optional-part handling.
 - Compatibility intersects explicit MountOn with loaded ModelWeaponPart script declarations. B42 fields have no non-debug Lua accessor, so normal mode reads `getScriptItem():getScriptLines()` without reflection.
 - Runtime RequiredAttachment all/any dependencies, UpgradeExclusives, PermanentAttachments and UniversalAttachment registries remain the source of truth. Generic rails reserve one physical source object per outcome.
 - Same-Z 3x3 reachable sources, locks/safehouse/vehicle access checks, recursion limit eight. Tools must already be in player inventory.

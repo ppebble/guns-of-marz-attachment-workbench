@@ -59,5 +59,6 @@
     "IGUI_GMAW_ActionsQueued": "Transferring parts, then assembling with normal actions. Esc cancels remaining work.",
     "IGUI_GMAW_Busy": "Finish or cancel your current action first.",
     "IGUI_GMAW_Stopped": "Work stopped. Completed transfers and upgrades remain; review the refreshed list.",
-    "IGUI_GMAW_Mounts": "Required rails / mounts"
+    "IGUI_GMAW_Mounts": "Required rails / mounts",
+    "IGUI_GMAW_Slot_Suppressor": "Suppressor"
 }

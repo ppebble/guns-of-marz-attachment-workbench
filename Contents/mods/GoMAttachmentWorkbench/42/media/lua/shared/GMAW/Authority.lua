@@ -2,6 +2,7 @@ local M = require "GMAW/Model"
 local Required = require "WeaponSystems/Utils/RequiredAttachment"
 local Exclusives = require "WeaponSystems/Utils/UpgradeExclusives"
 local Universal = require "WeaponSystems/Utils/UniversalAttachment"
+local T = require "GMAW/Attachments"
 
 local A = {}
 
@@ -27,6 +28,11 @@ function A.apply(player, args)
         if not installed or (args.partID and installed:getID() ~= args.partID)
             or M.permanent(installed) or Required.IsRemovalBlocked(weapon, installed:getFullType())
             or not installed:canDetach(player, weapon) then return false, "Detach" end
+        if T.owner(installed) then
+            local action = T.action(player, weapon, installed, true)
+            if not action:isValid() then return false, "Detach" end
+            return action:complete() ~= false, installed, "native"
+        end
         weapon:detachWeaponPart(player, installed)
         inventory:AddItem(installed)
         return true, installed, "add"
@@ -38,6 +44,15 @@ function A.apply(player, args)
 
     local consumed = itemByID(inventory, args.partID)
     if not consumed or consumed:isBroken() then return false, "Part" end
+    if T.owner(consumed) then
+        if args.generic or consumed:getFullType() ~= args.fullType or consumed:getPartType() ~= args.slot
+            or not T.compatible(consumed, weapon) or not T.canAttach(consumed, player, weapon) then
+            return false, "Part"
+        end
+        local action = T.action(player, weapon, consumed, false)
+        if not action:isValid() then return false, "Part" end
+        return action:complete() ~= false, consumed, "native"
+    end
     local attached = consumed
     if args.generic then
         if not Universal.CanInstallOutcome(weapon, args.fullType, player) then return false, "Tools" end

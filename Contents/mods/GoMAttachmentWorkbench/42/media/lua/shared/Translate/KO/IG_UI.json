@@ -59,5 +59,6 @@
     "IGUI_GMAW_ActionsQueued": "부품 이동 후 일반 조립 작업을 진행합니다. Esc로 남은 작업을 취소할 수 있습니다.",
     "IGUI_GMAW_Busy": "진행 중인 작업을 마치거나 취소한 뒤 시작하세요.",
     "IGUI_GMAW_Stopped": "작업이 중단되었습니다. 완료된 이동과 조립은 유지됩니다. 목록을 확인하세요.",
-    "IGUI_GMAW_Mounts": "선행 레일 / 마운트"
+    "IGUI_GMAW_Mounts": "선행 레일 / 마운트",
+    "IGUI_GMAW_Slot_Suppressor": "소음기"
 }

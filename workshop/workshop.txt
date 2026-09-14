@@ -1,4 +1,5 @@
 version=1
+id=3798555914
 title=Guns of Marz: Attachment Workbench
 description=[h1]Guns of Marz: Attachment Workbench[/h1]
 description=
@@ -34,6 +35,9 @@ description=
 description=[h2]Compatibility notes[/h2]
 description=[list]
 description=[*]Designed for Project Zomboid Build 42.
+description=[*]Enable either current Guns of Marz or its bundled Old Version, not both. Gunworks Framework is required.
+description=[*]Includes workbench access for vanilla firearms overridden by Simple Suppressors, including the M16 and JS shotguns.
+description=[*]Improvised Silencers integration is included. For Simple Suppressors, use its own context menu if workbench installation is unavailable. GoM visual mappings for its suppressors are not included.
 description=[*]Works with parts found in the player inventory and nearby storage.
 description=[*]For multiplayer, install this mod and Guns of Marz on both the server and all clients.
 description=[/list]

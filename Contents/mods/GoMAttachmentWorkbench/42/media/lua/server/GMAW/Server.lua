@@ -20,7 +20,7 @@ local function onClientCommand(module, command, player, args)
     local inventory = player:getInventory()
     if direction == "remove" then
         sendRemoveItemFromContainer(inventory, changed)
-    else
+    elseif direction == "add" then
         sendAddItemToContainer(inventory, changed)
     end
     local weapon = inventory:getItemById(args.weaponID)

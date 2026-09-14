@@ -1,6 +1,7 @@
 local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
 local S = require "GMAW/Sources"
+local T = require "GMAW/Attachments"
 local V = {}
 
 function V.choices(choices, catalog, extra)
@@ -26,8 +27,8 @@ function V.build(catalog, installed, available, choices, player, weapon, scan)
         for fullType, c in pairs(catalog) do
             if c.slot == slot then
                 local plan, reason = P.solve(catalog, installed, available, V.choices(choices, catalog, fullType))
-                local checked, attachable = pcall(c.part.canAttach, c.part, player, weapon)
-                local groups = M.toolGroups(c.slot)
+                local checked, attachable = pcall(T.canAttach, c.part, player, weapon)
+                local groups = M.toolGroups(c.slot, c.part)
                 local nearbyTools = #groups > 0 and scan and S.hasWorkingGroups(scan, groups)
                 -- canAttach checks GoM tools in the player inventory. A matching
                 -- nearby tool is queued first, so do not grey this option early.

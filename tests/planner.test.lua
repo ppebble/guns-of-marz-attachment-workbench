@@ -38,6 +38,13 @@ local conflict = { a = entry("A"), b = entry("B") }
 conflict.a.excludes = { b = true }
 assert(not P.solve(conflict, {}, { a = available.up, b = available.down }, { "a", "b" }))
 local pistol = { mount = entry("RailUp"), sight = entry("Scope", { mount = true, wrong = true }) }
+local selfExclusive = { suppressor = entry("Suppressor"), scope = entry("Scope"), muzzle = entry("Canon") }
+selfExclusive.suppressor.excludes = { suppressor = true, muzzle = true }
+local sources = { suppressor = available.up, scope = available.scope, muzzle = available.down }
+assert(P.solve(selfExclusive, {}, sources, { "suppressor" }), "self-exclusion must not reject installation")
+local installedSuppressor = { Suppressor = item("suppressor", 300, "Suppressor") }
+assert(P.solve(selfExclusive, installedSuppressor, sources, { "scope" }), "installed self-exclusive part must not block unrelated slots")
+assert(not P.solve(selfExclusive, installedSuppressor, sources, { "muzzle" }), "distinct muzzle exclusion remains enforced")
 assert(#assert(P.solve(pistol, {}, { mount = available.up, sight = available.scope }, { "sight" })) == 2)
 assert(not P.solve(pistol, {}, { sight = available.scope, wrong = available.down }, { "sight" }))
 print("planner: dependencies, four rails, shotgun, pistol, replacement, missing, exclusives, cycle, shared quantities")

@@ -4,9 +4,9 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const mod = path.join(root, 'Contents/mods/GoMAttachmentWorkbench/42');
 const read = p => fs.readFileSync(path.join(mod, p), 'utf8');
-assert.match(read('mod.info'), /^require=GunsOfMarz$/m);
-assert.match(read('mod.info'), /^loadModAfter=GunsOfMarz$/m);
-assert.match(read('mod.info'), /^incompatible=MarzGuns$/m);
+assert.match(read('mod.info'), /^require=SWMG$/m);
+assert.match(read('mod.info'), /^loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors$/m);
+assert.doesNotMatch(read('mod.info'), /^incompatible=.*MarzGuns/m);
 function translations(lang) {
   assert.ok(!fs.existsSync(path.join(mod,`media/lua/shared/Translate/${lang}/IGUI_${lang}.txt`)), 'Incorrect old translation filename must not ship');
   return JSON.parse(read(`media/lua/shared/Translate/${lang}/IG_UI.json`));

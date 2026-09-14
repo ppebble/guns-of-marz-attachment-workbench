@@ -1,6 +1,11 @@
 local A,M,S,P=require "GMAW/Actions",require "GMAW/Model",require "GMAW/Sources",require "GMAW/Planner"
 local saved={supported=M.supported,candidates=M.candidates,scan=S.scan}
 local inv=inventory({})
+function inv:getFirstTagEvalRecurse(tag, predicate)
+    for _, p in ipairs(self.values) do
+        if p.hasTag and p:hasTag(tag) and predicate(p) then return p end
+    end
+end
 function inv:containsID(id) return self:getItemById(id)~=nil end
 function inv:getItemById(id) for _,p in ipairs(self.values) do if p:getID()==id then return p end end end
 local player={getInventory=function() return inv end,getPlayerNum=function() return 0 end,isDead=function() return false end,pressedCancelAction=function() return false end}

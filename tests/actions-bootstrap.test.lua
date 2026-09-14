@@ -2,7 +2,7 @@ for _, name in ipairs({"ISUI/ISInventoryPaneContextMenu","ISUI/ISInventoryPage",
     "TimedActions/ISInventoryTransferUtil","WeaponSystems/Hooks/WeaponUpgradeHooks","MarzWeapons/ISUI/RequiredToolVisualEquipt"}) do modules[name]={} end
 local Base = {}
 function Base:derive() local t = {}; setmetatable(t, {__index=self}); return t end
-function Base.new(_, _, player) return setmetatable({character=player}, {__index=Base}) end
+function Base.new(class, player) return setmetatable({character=player}, {__index=class}) end
 function Base:stop() end
 function Base:perform() end
 function Base:getJobDelta() return 1 end
@@ -18,7 +18,7 @@ function ISTimedActionQueue.hasAction(action)
     return false
 end
 function ISTimedActionQueue.add(action)
-    local q=ISTimedActionQueue.getTimedActionQueue(action.player)
+    local q=ISTimedActionQueue.getTimedActionQueue(action.character or action.player)
     table.insert(q.queue,action); return q,action
 end
 function ISTimedActionQueue.queueActions(player,callback,batch)

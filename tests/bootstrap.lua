@@ -1,4 +1,5 @@
 modules = {}
+function getActivatedMods() return { contains = function(_, id) return id == "GunsOfMarz" end } end
 function require(name) assert(modules[name], "missing module " .. name); return modules[name] end
 local required = { Dependencies = {}, AnyDependencies = {} }
 function required.RequiresParent(child, parent)

@@ -2,6 +2,7 @@ local M = require "GMAW/Model"
 local Required = require "WeaponSystems/Utils/RequiredAttachment"
 local Underbarrel = require "WeaponSystems/Utils/Underbarrel"
 local Railing = require "WeaponSystems/Utils/Railing"
+local T = require "GMAW/Attachments"
 local B = {}
 local function depends(child, parent)
     if Required.RequiresParent(child, parent) then return true end
@@ -25,7 +26,8 @@ function B.preflight(player, weapon, catalog, plan, removeSlot, toolsWillTransfe
         if source:getFullType() ~= step.fullType then part = instanceItem(step.fullType) end
         -- Tool transfers are queued before this action. Preserve native
         -- canAttach validation at execution time once they are in inventory.
-        if not part or (not toolsWillTransfer and not part:canAttach(player, weapon)) then return nil, "Tools" end
+        if not part or not T.compatible(part, weapon)
+            or (not toolsWillTransfer and not T.canAttach(part, player, weapon)) then return nil, "Tools" end
         step.part = part
     end
     -- Temporarily remove installed descendants before replacing a mount.
@@ -59,7 +61,7 @@ function B.preflight(player, weapon, catalog, plan, removeSlot, toolsWillTransfe
         -- Stateful underbarrels can hold ammunition. Never bypass their refund workflow.
         if Underbarrel.UnderbarrelAttachments[part:getFullType()] then return nil, "Special" end
         if not removeSlot and not replacing[slot] and not toolsWillTransfer
-            and not part:canAttach(player, weapon) then return nil, "Tools" end
+            and not T.canAttach(part, player, weapon) then return nil, "Tools" end
         if not order(slot) then return nil, "Dependency" end
     end
     return { player = player, weapon = weapon, plan = plan, detached = detached }

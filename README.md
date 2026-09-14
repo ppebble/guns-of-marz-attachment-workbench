@@ -3,8 +3,11 @@
 Project Zomboid **B42.20.4**용 독립형 총기 개조 작업대. Mod ID: `GoMAttachmentWorkbench`.
 
 **상태: 0.1 테스트 빌드. 소스/설치본 검증과 실제 게임 검증은 별개입니다.**
-필수 모드: 현재 `GunsOfMarz` 및 해당 모드의 의존성 `SWMG` (Gunworks Framework).
-구형 `MarzGuns` 및 다른 총기 모드는 지원하지 않습니다. GoM이 활성화된 경우에만 바닐라 총기를 지원합니다.
+필수 모드: `SWMG` (Gunworks Framework)와 **`GunsOfMarz` 또는 `MarzGuns` (Old Version) 중 하나**.
+같은 Workshop 항목에 포함된 Old Version도 지원 대상으로 추가했습니다. 두 버전 동시 활성화 또는 GoM 미활성화 시 작업대는 비활성화됩니다. 다른 총기 모드는 제외하며, 바닐라 총기도 GoM 활성화 시에만 지원합니다. 구버전 지원은 게임 B42.20.4 이상 기준이며 B41 지원이 아닙니다.
+구형은 드라이버, 신형은 GoM의 슬롯별 도구 규칙을 사용합니다. 실제 구형 게임/멀티플레이 동작은 아직 미검증입니다. [호환성 범위](docs/compatibility.md)
+
+선택 호환 모드: **Improvised Silencers (3779164273)** 및 **Simple Suppressors (3782565181)**. 설치·활성화한 모드의 호환 부품만 작업대에 표시합니다. Improvised Silencers는 총구 슬롯(일반 부품은 드라이버, 감자는 맨손), Simple Suppressors는 소음기 슬롯(장착은 맨손, 제거는 드라이버)을 사용합니다. Simple Suppressors의 구경·샌드박스 제한을 유지하며 두 모드의 원래 장착/제거 완료 처리를 사용합니다. 다른 모드의 총기는 허용하지 않습니다. 실제 화면·소리·내구도·멀티플레이 효과는 인게임 확인이 필요합니다.
 
 ## 사용
 
@@ -29,6 +32,9 @@ Project Zomboid **B42.20.4**용 독립형 총기 개조 작업대. Mod ID: `GoMA
 ```powershell
 ./scripts/test.ps1
 ./scripts/test-installed.ps1
+./scripts/test-installed.ps1 -Legacy
+./scripts/test-attachments.ps1
+./scripts/test-attachments.ps1 -Legacy
 ./scripts/install-local.ps1
 ```
 

@@ -1,8 +1,7 @@
 name=GoM Attachment Workbench
 id=GoMAttachmentWorkbench
-description=Nearby-storage attachment workbench for current Guns of Marz and vanilla firearms. Requires Guns of Marz and Gunworks Framework. English and Korean.
+description=Nearby-storage attachment workbench for current or Old Version Guns of Marz and vanilla firearms. Enable exactly one GoM version plus Gunworks Framework. English and Korean.
 versionMin=42.20.4
-require=GunsOfMarz
-loadModAfter=GunsOfMarz
-incompatible=MarzGuns
+require=SWMG
+loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors
 author=ask13

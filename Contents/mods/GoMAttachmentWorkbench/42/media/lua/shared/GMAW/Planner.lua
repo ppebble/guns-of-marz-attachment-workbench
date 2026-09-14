@@ -81,7 +81,8 @@ function P.solve(catalog, installed, available, choices)
     for _, fullType in pairs(final) do
         local c = catalog[fullType]
         if c then
-            for other in pairs(c.excludes or {}) do if types[other] then return nil, "Conflict" end end
+            -- Upstream exclusive groups may include themselves; only distinct parts conflict.
+            for other in pairs(c.excludes or {}) do if other ~= fullType and types[other] then return nil, "Conflict" end end
             for parent in pairs(c.all) do if not types[parent] then return nil, "Dependency" end end
             if #M.keys(c.any) > 0 then
                 local found = false
