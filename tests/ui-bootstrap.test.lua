@@ -11,7 +11,11 @@ function UI:createChildren() end
 function UI:addChild() end
 function UI:addToUIManager() if not self.created then self.created=true; self:createChildren() end end
 function UI:removeFromUIManager() end
-function UI:setVisible() end
+function UI:setVisible(value) self.visible=value end
+function UI:bringToTop() end
+function UI:setOwner(owner) self.owner=owner end
+function UI:setItem(item) self.item=item end
+function UI:setCharacter(character) self.character=character end
 function UI:setEnable(value) self.enabled=value end
 function UI:setOnMouseDownFunction(target,callback) self.target=target; self.callback=callback end
 function UI:setOnMouseDoubleClick(target,callback) self.doubleCallback=callback end
@@ -21,6 +25,10 @@ function UI:addItem(text,data,tooltip) self.items[#self.items+1]={index=#self.it
 function UI:clear() self.items={}; self.selected=0 end
 function UI:getYScroll() return self.scroll end
 function UI:setYScroll(value) self.scroll=value end
+function UI:isMouseOver() return self.mouseOver end
+function UI:isMouseOverScrollBar() return false end
+function UI:getMouseX() return self.mouseX or 0 end
+function UI:getMouseY() return self.mouseY or 0 end
 function UI:drawRect() end
 function UI:drawRectBorder(x,y,w,h,a,r,g,b) self.draws[#self.draws+1]={border=true,r=r,g=g,b=b} end
 function UI:drawText(text) self.draws[#self.draws+1]={text=text} end
@@ -31,12 +39,21 @@ end
 function UI:prerender() end
 function UI:update() end
 ISCollapsableWindow=UI:derive(); ISScrollingListBox=UI:derive(); ISButton=UI:derive()
+ISToolTipInv=UI:derive()
+function ISToolTipInv:new(item)
+    local o=UI.new(self,0,0,0,0); o.item=item; return o
+end
 modules["ISUI/ISCollapsableWindow"]=ISCollapsableWindow
 modules["ISUI/ISScrollingListBox"]=ISScrollingListBox
 modules["ISUI/ISButton"]=ISButton
+modules["ISUI/ISToolTipInv"]=ISToolTipInv
+modules["MarzWeapons/ItemTooltipsTable"]={tooltipsPergun={
+    ["MarzGuns.OKP3_Sight"]={"Aiming Time reduced by 5%", "Critical and Hit Chance increased by 15%", "Needs Screwdriver to install or remove."}
+}}
 UIFont={Small="Small"}
 function getText(key) return key:gsub("^IGUI_GMAW_", "") end
 function getTextManager() return {MeasureStringX=function(_,font,text) return #text*6 end} end
 function getCore() return {getScreenWidth=function() return 1086 end,getScreenHeight=function() return 642 end} end
+function getSpecificPlayer(number) return {number=number} end
 Events.OnFillInventoryObjectContextMenu={Add=function() end}
 Events.OnServerCommand={Add=function(callback) uiServerCallback=callback end}

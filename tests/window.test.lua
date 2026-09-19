@@ -7,6 +7,11 @@ local function part(name,id,slot)
     local p=item(name,id,slot); p.getName=function() return name end; p.getTex=function() return name.."-icon" end; return p
 end
 local rail,scope,missing=part("rail",1,"RailUp"),part("scope",2,"Scope"),part("missing",3,"Scope")
+scope.getPartType=function() return "Scope" end
+scope.getFullType=function() return "MarzGuns.OKP3_Sight" end
+scope.getDamage=function() return 0.5 end
+scope.getMaxRange=function() return 4 end
+scope.getMountOn=function() return javaList({"MarzGuns.M16A1", "MarzGuns.M16A2"}) end
 local catalog={rail={slot="RailUp",part=rail,all={},any={},consume="rail"},
     scope={slot="Scope",part=scope,all={},any={},consume="scope"},missing={slot="Scope",part=missing,all={},any={},consume="missing"}}
 ItemTag={SCREWDRIVER="screwdriver",WRENCH="wrench",PIPE_WRENCH="pipe_wrench"}
@@ -52,6 +57,32 @@ for _,list in ipairs({w.weapons,w.slots,w.mounts,w.parts,w.cart}) do
 end
 assert(textures["gun-icon"] and textures["scope-icon"], "item texture must actually be drawn")
 assert(textures["missing-icon"].alpha<1 and textures["missing-icon"].r<1, "missing icon is grey")
+w.weapons.mouseOver=true; w.weapons.mouseY=0; w.weapons:updateTooltip()
+assert(w.weapons.items[1].item.item==gun, "weapon row holds selected gun")
+assert(w.weapons.tooltipUI, "weapon hover creates tooltip")
+assert(w.weapons.tooltipUI.item==gun and w.weapons.tooltipUI.followMouse and w.weapons.tooltipUI.layout,
+    "weapon hover uses the workbench tooltip with vanilla inventory styling")
+w.slots.mouseOver=true; w.slots.mouseY=0; w.slots:updateTooltip()
+assert(w.slots.tooltipUI==nil, "empty slot does not create an item tooltip")
+w.parts.mouseOver=true; w.parts.mouseY=0; w.parts:updateTooltip()
+assert(w.parts.tooltipUI and w.parts.tooltipUI.item==scope and w.parts.tooltipUI.layout,
+    "attachment hover uses the workbench tooltip with vanilla inventory styling")
+local labels={}
+local tooltip={padLeft=5,padTop=5,padBottom=5,
+    beginLayout=function()
+        return {addItem=function()
+            return {setLabel=function(_, text) labels[#labels+1]=text end}
+        end,render=function() return 20 end}
+    end,endLayout=function() end,setHeight=function(_, height) assert(height==25) end}
+w.parts.tooltipUI:layout(tooltip)
+assert(table.concat(labels, "\n"):find("TooltipDamage") and table.concat(labels, "\n"):find("TooltipMaxRange"),
+    "custom attachment tooltip includes provided stats")
+assert(table.concat(labels, "\n"):find("Aiming Time reduced by 5%%") and table.concat(labels, "\n"):find("Critical and Hit Chance increased by 15%%"),
+    "custom attachment tooltip preserves authoritative GoM effects")
+assert(not table.concat(labels, "\n"):find("Needs Screwdriver"), "custom attachment tooltip omits repeated tool instructions")
+assert(not table.concat(labels, "\n"):find("M16A1"), "custom attachment tooltip never lists compatible weapons")
+w.parts.mouseOver=false; w.parts:updateTooltip()
+assert(not w.parts.tooltipUI.visible, "item tooltip hides after leaving its row")
 w.cart.draws={}; w.cart:setYScroll(-100)
 w.cart:doDrawItem(0,w.cart.items[1])
 assert(#w.cart.draws==0, "offscreen cart row is clipped instead of drawing above its list")
