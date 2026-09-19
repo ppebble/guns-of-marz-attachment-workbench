@@ -11,9 +11,11 @@ function translations(lang) {
   assert.ok(!fs.existsSync(path.join(mod,`media/lua/shared/Translate/${lang}/IGUI_${lang}.txt`)), 'Incorrect old translation filename must not ship');
   return JSON.parse(read(`media/lua/shared/Translate/${lang}/IG_UI.json`));
 }
-const en = translations('EN'), ko = translations('KO');
+const en = translations('EN'), ko = translations('KO'), cn = translations('CN');
 assert.deepEqual(Object.keys(en).sort(), Object.keys(ko).sort());
+assert.deepEqual(Object.keys(en).sort(), Object.keys(cn).sort());
 assert.match(ko.IGUI_GMAW_Title, /[가-힣]/, 'Korean encoding retained');
+assert.match(cn.IGUI_GMAW_Title, /[\u4E00-\u9FFF]/, 'Simplified Chinese encoding retained');
 const ui = read('media/lua/client/GMAW/Window.lua');
 for (const [,key] of ui.matchAll(/tr\("(\w+)"\)/g)) assert.ok(en[`IGUI_GMAW_${key}`], key);
 for (const key of ['Unsupported','Conflict','Dependency','Missing','Tools','Stale','Special','Success','ActionsQueued','Busy','Stopped']) assert.ok(en[`IGUI_GMAW_${key}`]);
@@ -50,4 +52,4 @@ assert.match(workshop, /sharedfiles\/filedetails\/\?id=3722134990/);
 assert.doesNotMatch(workshop, /\{PREVIEW_IMAGE_URL\}/);
 assert.match(workshop, /\[h2\]More Project Zomboid Mods by ask13\[\/h2\]/);
 assert.match(workshop, /https:\/\/github\.com\/ppebble\/project-zomboid-modding/);
-console.log(`PASS manifests, source boundary, bounded access, EN/KO ${Object.keys(en).length} keys`);
+console.log(`PASS manifests, source boundary, bounded access, EN/KO/CN ${Object.keys(en).length} keys`);

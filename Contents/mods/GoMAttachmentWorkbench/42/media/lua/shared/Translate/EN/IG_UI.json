@@ -60,5 +60,18 @@
     "IGUI_GMAW_Busy": "Finish or cancel your current action first.",
     "IGUI_GMAW_Stopped": "Work stopped. Completed transfers and upgrades remain; review the refreshed list.",
     "IGUI_GMAW_Mounts": "Required rails / mounts",
-    "IGUI_GMAW_Slot_Suppressor": "Suppressor"
+    "IGUI_GMAW_Slot_Suppressor": "Suppressor",
+    "IGUI_GMAW_TooltipSlot": "Slot",
+    "IGUI_GMAW_TooltipWeight": "Weight modifier",
+    "IGUI_GMAW_TooltipMinRange": "Minimum range",
+    "IGUI_GMAW_TooltipMaxRange": "Maximum range",
+    "IGUI_GMAW_TooltipMinSightRange": "Minimum sight range",
+    "IGUI_GMAW_TooltipMaxSightRange": "Maximum sight range",
+    "IGUI_GMAW_TooltipDamage": "Damage",
+    "IGUI_GMAW_TooltipRecoilDelay": "Recoil delay",
+    "IGUI_GMAW_TooltipReloadTime": "Reload time",
+    "IGUI_GMAW_TooltipAimingTime": "Aiming time",
+    "IGUI_GMAW_TooltipHitChance": "Hit chance",
+    "IGUI_GMAW_TooltipClipSize": "Magazine capacity",
+    "IGUI_GMAW_TooltipLowLight": "Low-light bonus"
 }

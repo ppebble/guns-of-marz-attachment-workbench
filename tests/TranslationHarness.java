@@ -12,7 +12,7 @@ public class TranslationHarness {
             String.class, String.class, Map.class, language, Function.class);
         reader.setAccessible(true);
         Set<String> expected = null;
-        for (String name : List.of("EN", "KO")) {
+        for (String name : List.of("EN", "KO", "CN")) {
             Map<String,String> map = new HashMap<>();
             reader.invoke(null, args[0], "IG_UI", map, constructor.newInstance(name, name, "EN", false), Function.identity());
             if (map.size() < 60 || !map.containsKey("IGUI_GMAW_Title")) throw new AssertionError("Translation discovery failed: " + name);
@@ -21,6 +21,8 @@ public class TranslationHarness {
             expected = new HashSet<>(map.keySet());
             if (name.equals("KO") && map.get("IGUI_GMAW_Title").codePoints().noneMatch(c -> c >= 0xAC00 && c <= 0xD7A3))
                 throw new AssertionError("Korean encoding");
+            if (name.equals("CN") && map.get("IGUI_GMAW_Title").codePoints().noneMatch(c -> c >= 0x4E00 && c <= 0x9FFF))
+                throw new AssertionError("Simplified Chinese encoding");
             System.out.println("PASS native translation reader " + name + ": " + map.size() + " keys");
         }
     }

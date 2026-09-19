@@ -1,6 +1,7 @@
 require "ISUI/ISCollapsableWindow"
 require "ISUI/ISScrollingListBox"
 require "ISUI/ISButton"
+require "ISUI/ISToolTipInv"
 local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
 local S = require "GMAW/Sources"
@@ -9,6 +10,7 @@ require "GMAW/Actions"
 -- Do not retain require()'s transient nil during PZ client-script loading.
 local A = GMAWActions
 local W = ISCollapsableWindow:derive("GMAWWindow")
+local T = ISToolTipInv:derive("GMAWItemTooltip")
 GMAWWindows = GMAWWindows or {}
 local function tr(key) return getText("IGUI_GMAW_" .. key) end
 
@@ -48,6 +50,96 @@ end
 local function visible(list, y)
     local scroll = list:getYScroll() or 0
     return y + scroll + list.itemheight >= 0 and y + scroll < list.height
+end
+
+local function number(value)
+    local text = string.format("%.2f", value)
+    return text:gsub("%.?0+$", "")
+end
+
+local function stat(lines, item, method, key)
+    if not item[method] then return end
+    local value = item[method](item)
+    if value and value ~= 0 then
+        lines[#lines + 1] = tr(key) .. ": " .. (value > 0 and "+" or "") .. number(value)
+    end
+end
+
+local function upstreamStats(lines, item)
+    local ok, table = pcall(require, "MarzWeapons/ItemTooltipsTable")
+    local entry = ok and table and table.tooltipsPergun and table.tooltipsPergun[item:getFullType()]
+    if type(entry) == "string" then entry = {entry} end
+    if type(entry) ~= "table" then return end
+    for _, line in ipairs(entry) do
+        -- The workbench already displays its tool requirement separately. Keep
+        -- the authoritative GoM stat effects, but never repeat install advice.
+        if type(line) == "string" and not line:match("^Needs ") then lines[#lines + 1] = line end
+    end
+end
+
+function T:layout(tooltip)
+    local item, lines = self.item, {}
+    if item.getPartType then lines[#lines + 1] = tr("TooltipSlot") .. ": " .. tr("Slot_" .. item:getPartType()) end
+    upstreamStats(lines, item)
+    stat(lines, item, "getWeightModifier", "TooltipWeight")
+    stat(lines, item, "getMinRangeRanged", "TooltipMinRange")
+    stat(lines, item, "getMaxRange", "TooltipMaxRange")
+    stat(lines, item, "getMinSightRange", "TooltipMinSightRange")
+    stat(lines, item, "getMaxSightRange", "TooltipMaxSightRange")
+    stat(lines, item, "getDamage", "TooltipDamage")
+    stat(lines, item, "getRecoilDelay", "TooltipRecoilDelay")
+    stat(lines, item, "getReloadTime", "TooltipReloadTime")
+    stat(lines, item, "getAimingTime", "TooltipAimingTime")
+    stat(lines, item, "getHitChance", "TooltipHitChance")
+    stat(lines, item, "getClipSize", "TooltipClipSize")
+    stat(lines, item, "getLowLightBonus", "TooltipLowLight")
+    if item.getMaxDamage then
+        local min, max = item:getMinDamage(), item:getMaxDamage()
+        if min ~= 0 or max ~= 0 then lines[#lines + 1] = tr("TooltipDamage") .. ": " .. number(min) .. "-" .. number(max) end
+    end
+    local layout = tooltip:beginLayout()
+    layout:addItem():setLabel(item:getName(), 1, 1, 1, 1)
+    for _, line in ipairs(lines) do layout:addItem():setLabel(line, 0.85, 0.85, 0.85, 1) end
+    local endY = layout:render(tooltip.padLeft or 5, tooltip.padTop or 5, tooltip)
+    tooltip:endLayout(layout); tooltip:setHeight(endY + (tooltip.padBottom or 5))
+end
+
+-- Retain the vanilla inventory tooltip frame, placement, and sizing while
+-- intentionally rendering only workbench-relevant stats (never MountOn).
+function T:render()
+    if ISContextMenu.instance and ISContextMenu.instance.visibleCheck then return end
+    local mx, my = getMouseX() + 24, getMouseY() + 24
+    self.tooltip:setX(mx); self.tooltip:setY(my); self.tooltip:setWidth(50); self.tooltip:setMeasureOnly(true)
+    self:layout(self.tooltip); self.tooltip:setMeasureOnly(false)
+    local core, width, height = getCore(), self.tooltip:getWidth(), self.tooltip:getHeight()
+    self.tooltip:setX(math.max(0, math.min(mx, core:getScreenWidth() - width - 1)))
+    self.tooltip:setY(math.max(0, math.min(my, core:getScreenHeight() - height - 1)))
+    self:setX(self.tooltip:getX()); self:setY(self.tooltip:getY()); self:setWidth(width); self:setHeight(height)
+    self:adjustPositionToAvoidOverlap({x=mx - 48, y=my - 48, width=48, height=48})
+    self:drawRect(0, 0, self.width, self.height, self.backgroundColor.a, self.backgroundColor.r, self.backgroundColor.g, self.backgroundColor.b)
+    self:drawRectBorder(0, 0, self.width, self.height, self.borderColor.a, self.borderColor.r, self.borderColor.g, self.borderColor.b)
+    self:layout(self.tooltip)
+end
+
+local function updateItemTooltip(list)
+    local row = list:isMouseOver() and not list:isMouseOverScrollBar()
+        and list:rowAt(list:getMouseX(), list:getMouseY()) or -1
+    local data = list.items[row] and list.items[row].item
+    local item = data and data.item
+    if not item then
+        if list.tooltipUI then list.tooltipUI:setVisible(false); list.tooltipUI:removeFromUIManager() end
+        return
+    end
+    local tooltip = list.tooltipUI
+    if tooltip then
+        tooltip:setItem(item); tooltip:setVisible(true); tooltip:addToUIManager(); tooltip:bringToTop()
+    else
+        tooltip = T:new(item)
+        tooltip:initialise(); tooltip:addToUIManager(); tooltip:setVisible(true); tooltip:setOwner(list)
+        tooltip:setCharacter(getSpecificPlayer(list.gmawWindow.player:getPlayerNum()))
+        list.tooltipUI = tooltip
+    end
+    tooltip.followMouse = true
 end
 
 local function drawItem(list, y, row)
@@ -91,6 +183,8 @@ function W:createChildren()
         box:initialise(); box:instantiate()
         box.itemheight = rowHeight
         box.doDrawItem = draw
+        box.gmawWindow = self
+        box.updateTooltip = updateItemTooltip
         self:addChild(box)
         return box
     end

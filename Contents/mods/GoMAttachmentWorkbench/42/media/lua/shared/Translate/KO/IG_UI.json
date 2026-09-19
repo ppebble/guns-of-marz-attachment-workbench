@@ -60,5 +60,18 @@
     "IGUI_GMAW_Busy": "진행 중인 작업을 마치거나 취소한 뒤 시작하세요.",
     "IGUI_GMAW_Stopped": "작업이 중단되었습니다. 완료된 이동과 조립은 유지됩니다. 목록을 확인하세요.",
     "IGUI_GMAW_Mounts": "선행 레일 / 마운트",
-    "IGUI_GMAW_Slot_Suppressor": "소음기"
+    "IGUI_GMAW_Slot_Suppressor": "소음기",
+    "IGUI_GMAW_TooltipSlot": "장착 슬롯",
+    "IGUI_GMAW_TooltipWeight": "무게 변화",
+    "IGUI_GMAW_TooltipMinRange": "최소 사거리",
+    "IGUI_GMAW_TooltipMaxRange": "최대 사거리",
+    "IGUI_GMAW_TooltipMinSightRange": "최소 조준 거리",
+    "IGUI_GMAW_TooltipMaxSightRange": "최대 조준 거리",
+    "IGUI_GMAW_TooltipDamage": "피해",
+    "IGUI_GMAW_TooltipRecoilDelay": "반동 지연",
+    "IGUI_GMAW_TooltipReloadTime": "재장전 시간",
+    "IGUI_GMAW_TooltipAimingTime": "조준 시간",
+    "IGUI_GMAW_TooltipHitChance": "명중률",
+    "IGUI_GMAW_TooltipClipSize": "탄창 용량",
+    "IGUI_GMAW_TooltipLowLight": "저조도 보정"
 }
