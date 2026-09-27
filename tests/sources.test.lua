@@ -76,3 +76,16 @@ scan.entries={{item=nearbyTool,key="2:object",kind="Furniture"}}
 assert(S.firstWorkingTag(scan,{ItemTag.SCREWDRIVER}).item==nearbyTool)
 nearbyTool.isBroken=function() return true end
 assert(not S.firstWorkingTag(scan,{ItemTag.SCREWDRIVER}))
+
+-- Leaving and returning must discover fresh storage contents, not a cached scan.
+inv.isRemoveItemAllowed = function() return true end
+local before = S.scan(player)
+assert(before.byID[12] and before.byID[31] and before.byID[32])
+reachable = false
+local away = S.scan(player)
+assert(away.byID[22] and not away.byID[12] and not away.byID[31] and not away.byID[32])
+furniture.values = { item("new-part", 50) }
+reachable = true; access = true
+local returned = S.scan(player)
+assert(returned.byID[50] and not returned.byID[12] and returned.byID[13]
+    and returned.byID[31] and returned.byID[32], "returning re-scans furniture, vehicles and carts")

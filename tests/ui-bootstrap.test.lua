@@ -55,5 +55,5 @@ function getText(key) return key:gsub("^IGUI_GMAW_", "") end
 function getTextManager() return {MeasureStringX=function(_,font,text) return #text*6 end} end
 function getCore() return {getScreenWidth=function() return 1086 end,getScreenHeight=function() return 642 end} end
 function getSpecificPlayer(number) return {number=number} end
-Events.OnFillInventoryObjectContextMenu={Add=function() end}
+Events.OnFillInventoryObjectContextMenu={Add=function(callback) gmawInventoryMenu=callback end}
 Events.OnServerCommand={Add=function(callback) uiServerCallback=callback end}

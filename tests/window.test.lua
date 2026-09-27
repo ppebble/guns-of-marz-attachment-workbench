@@ -109,4 +109,36 @@ assert(#removed==2, "double click installed card removes")
 A.active[player]={sentinel=true}
 w:close(); assert(not GMAWWindows[0] and A.active[player].sentinel, "close never touches active work")
 A.active[player]=nil;A.remove=oldRemove
+-- The inventory callback and window lifecycle must remain reusable in one session.
+local oldSpecificPlayer = getSpecificPlayer
+getSpecificPlayer = function() return player end
+local menu = { addOption = function(_, label, target, callback, selected)
+    assert(target == player and selected == gun)
+    callback(target, selected)
+end }
+for attempt = 1, 3 do
+    gmawInventoryMenu(0, menu, {{items={gun}}})
+    local reopened = assert(GMAWWindows[0], "menu can reopen after closing")
+    reopened:close()
+    assert(not GMAWWindows[0])
+end
+gmawInventoryMenu(0, menu, {{items={gun}}})
+local previous = GMAWWindows[0]
+gmawInventoryMenu(0, menu, {{items={gun}}})
+local current = assert(GMAWWindows[0])
+assert(current ~= previous, "opening an already open workbench replaces its window")
+local oldScan = current.scan
+scan = {entries={{item=gun,kind="Furniture",key="nearby"}},byType={}}
+for frame = 1, 30 do current:update() end
+assert(current.scan == oldScan, "periodic updates currently refresh tools only")
+current:reload()
+assert(current.scan == scan and current.target.kind == "Furniture",
+    "refresh picks up a firearm moved into nearby storage")
+assert(not current.screwdriver, "refresh removes a tool that is no longer available")
+current:selectSlot(current.view.bySlot.Scope)
+for _, row in ipairs(current.parts.items) do
+    assert(row.item.dim, "refresh marks parts removed from nearby storage as unavailable")
+end
+current:close()
+getSpecificPlayer = oldSpecificPlayer
 M.supported,M.candidates,M.toolKey,S.scan=saved.supported,saved.candidates,saved.toolKey,saved.scan
