@@ -80,3 +80,10 @@ Known bounded omission: active/stateful underbarrel removal/replacement remains 
 - This claim is intentionally narrower than a complete dedicated-server
   regression record: retain any future server log, scenario, or screenshot
   with the release notes if one is needed for troubleshooting.
+
+## Thumbnail-inspired layout (2026-09-29)
+
+- The three-column layout now puts a searchable weapon list on the left, a selected-weapon diagram and full scrolling slot list in the center, and rails/mounts above selected-slot choices on the right. The existing cart and action controls remain below.
+- Kahlua UI tests exercise the diagram's slot click, narrow-window fallback, search filtering, installed/queued drawing, part choice, removal, and pending-action guards. Source and installed GoM test suites pass with the current Gunworks helper loaded.
+- The local mod and Workshop staging match source hashes. No new gameplay or server mutation code was introduced.
+- In-game rendering, mouse geometry, and multiplayer appearance still require a fresh game session; the marketing thumbnail is a visual direction, not a pixel-accurate game screenshot.

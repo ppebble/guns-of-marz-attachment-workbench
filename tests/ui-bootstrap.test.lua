@@ -17,6 +17,9 @@ function UI:setOwner(owner) self.owner=owner end
 function UI:setItem(item) self.item=item end
 function UI:setCharacter(character) self.character=character end
 function UI:setEnable(value) self.enabled=value end
+function UI:getText() return self.text or "" end
+function UI:setText(value) self.text=value; if self.onTextChangeFunction then self.onTextChangeFunction(self.target,self) end end
+function UI:setPlaceholderText(value) self.placeholder=value end
 function UI:setOnMouseDownFunction(target,callback) self.target=target; self.callback=callback end
 function UI:setOnMouseDoubleClick(target,callback) self.doubleCallback=callback end
 function UI:rowAt(x,y) return math.floor(y/self.itemheight)+1 end
@@ -38,7 +41,11 @@ function UI:drawTextureScaledAspect(texture,x,y,w,h,alpha,r,g,b)
 end
 function UI:prerender() end
 function UI:update() end
-ISCollapsableWindow=UI:derive(); ISScrollingListBox=UI:derive(); ISButton=UI:derive()
+ISCollapsableWindow=UI:derive(); ISScrollingListBox=UI:derive(); ISButton=UI:derive(); ISPanel=UI:derive()
+ISTextEntryBox=UI:derive()
+function ISTextEntryBox:new(text,x,y,width,height)
+    local box=UI.new(self,x,y,width,height); box.text=text; return box
+end
 ISToolTipInv=UI:derive()
 function ISToolTipInv:new(item)
     local o=UI.new(self,0,0,0,0); o.item=item; return o
@@ -46,6 +53,8 @@ end
 modules["ISUI/ISCollapsableWindow"]=ISCollapsableWindow
 modules["ISUI/ISScrollingListBox"]=ISScrollingListBox
 modules["ISUI/ISButton"]=ISButton
+modules["ISUI/ISPanel"]=ISPanel
+modules["ISUI/ISTextEntryBox"]=ISTextEntryBox
 modules["ISUI/ISToolTipInv"]=ISToolTipInv
 modules["MarzWeapons/ItemTooltipsTable"]={tooltipsPergun={
     ["MarzGuns.OKP3_Sight"]={"Aiming Time reduced by 5%", "Critical and Hit Chance increased by 15%", "Needs Screwdriver to install or remove."}

@@ -73,5 +73,6 @@
     "IGUI_GMAW_TooltipAimingTime": "Aiming time",
     "IGUI_GMAW_TooltipHitChance": "Hit chance",
     "IGUI_GMAW_TooltipClipSize": "Magazine capacity",
-    "IGUI_GMAW_TooltipLowLight": "Low-light bonus"
+    "IGUI_GMAW_TooltipLowLight": "Low-light bonus",
+    "IGUI_GMAW_Search": "Search weapons..."
 }

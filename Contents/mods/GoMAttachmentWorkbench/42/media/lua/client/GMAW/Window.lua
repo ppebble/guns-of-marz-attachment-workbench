@@ -1,6 +1,8 @@
 require "ISUI/ISCollapsableWindow"
 require "ISUI/ISScrollingListBox"
 require "ISUI/ISButton"
+require "ISUI/ISPanel"
+require "ISUI/ISTextEntryBox"
 require "ISUI/ISToolTipInv"
 local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
@@ -11,6 +13,7 @@ require "GMAW/Actions"
 local A = GMAWActions
 local W = ISCollapsableWindow:derive("GMAWWindow")
 local T = ISToolTipInv:derive("GMAWItemTooltip")
+local D = ISPanel:derive("GMAWWeaponDiagram")
 GMAWWindows = GMAWWindows or {}
 local function tr(key) return getText("IGUI_GMAW_" .. key) end
 
@@ -164,16 +167,100 @@ local function drawSlot(list, y, row)
     local arrowShade = d.installed and not list.target.pending and 0.9 or 0.35
     list:drawRectBorder(width - 34, y + 7, 24, 24, 1, arrowShade, arrowShade, arrowShade)
     list:drawText("-", width - 26, y + 9, arrowShade, arrowShade, arrowShade, 1, UIFont.Small)
-    icon(list, d.installed, 10, y + 36, 48, false)
-    list:drawText(fit(d.installed and d.installed:getName() or tr("Empty"), width - 78),
-        66, y + 37, 0.95, 0.95, 0.95, 1, UIFont.Small)
-    list:drawText(tr("Installed"), 66, y + 60, 0.55, 0.65, 0.55, 1, UIFont.Small)
+    icon(list, d.installed, 10, y + 27, 27, false)
+    list:drawText(fit(d.installed and d.installed:getName() or tr("Empty"), width - 58),
+        44, y + 32, 0.95, 0.95, 0.95, 1, UIFont.Small)
     if d.queued then
-        icon(list, d.queued, 12, y + 91, 26, false)
-        list:drawText(fit(tr(d.automatic and "AutoQueued" or "Queued") .. ": " .. d.queued:getName(), width - 54),
-            44, y + 96, 0.95, 0.75, 0.3, 1, UIFont.Small)
+        list:drawText(fit(tr(d.automatic and "AutoQueued" or "Queued") .. ": " .. d.queued:getName(), width - 20),
+            10, y + 54, 0.95, 0.75, 0.3, 1, UIFont.Small)
     end
     return y + list.itemheight
+end
+
+-- Six quick-access cards frame the selected gun. Every supported slot remains
+-- in the scrolling list below, including rails and weapons with many slots.
+local diagramOrder = {"Scope", "Canon", "RailUp", "Underbarrel", "Stock", "Shellholder"}
+function W:diagramCards()
+    local cards, used = {}, {}
+    if not self.view then return cards end
+    local limit = self.diagram and self.diagram.width >= 330 and self.diagram.height >= 180 and 6 or 2
+    for _, slot in ipairs(diagramOrder) do
+        local card = self.view.bySlot[slot]
+        if card then cards[#cards + 1] = card; used[slot] = true end
+        if #cards == limit then return cards end
+    end
+    for _, card in ipairs(self.view.slots) do
+        if #cards == limit then break end
+        if not used[card.slot] then cards[#cards + 1] = card end
+    end
+    return cards
+end
+
+function D:cardRect(index)
+    local width, height = 88, 40
+    local middle = math.floor((self.width - width) / 2)
+    if self.width < 330 or self.height < 180 then
+        return middle, index == 1 and 2 or self.height - height - 2, width, height
+    end
+    local positions = {
+        {middle, 2}, {7, 49}, {self.width - width - 7, 49},
+        {7, self.height - height - 50},
+        {self.width - width - 7, self.height - height - 50},
+        {middle, self.height - height - 2},
+    }
+    local point = positions[index]
+    return point[1], point[2], width, height
+end
+
+function D:prerender()
+    ISPanel.prerender(self)
+    self:drawRect(0, 0, self.width, self.height, 0.85, 0.055, 0.065, 0.075)
+    local gun = self.window.target and self.window.target.item
+    local centerX, centerY = self.width / 2, self.height / 2
+    if gun then
+        local texture = gun:getTex()
+        local gunWidth = math.min(124, self.width < 330 and self.width - 20 or self.width - 204)
+        self:drawRect(centerX - gunWidth / 2, centerY - 40, gunWidth, 80, 0.9, 0.1, 0.11, 0.12)
+        self:drawRectBorder(centerX - gunWidth / 2, centerY - 40, gunWidth, 80, 1, 0.92, 0.57, 0.17)
+        if texture then self:drawTextureScaledAspect(texture, centerX - gunWidth / 2 + 8, centerY - 34,
+            gunWidth - 16, 60, 1, 1, 1, 1) end
+        self:drawText(fit(gun:getName(), gunWidth - 8), centerX - gunWidth / 2 + 4,
+            centerY + 23, 0.95, 0.95, 0.95, 1, UIFont.Small)
+    end
+    for index, card in ipairs(self.window:diagramCards()) do
+        local x, y, width, height = self:cardRect(index)
+        local cardX, cardY = x + width / 2, y + height / 2
+        local startX = cardX < centerX and cardX or centerX
+        local endX = cardX < centerX and centerX or cardX
+        self:drawRect(startX, centerY, math.max(1, endX - startX), 1, 0.7, 0.7, 0.44, 0.16)
+        self:drawRect(cardX, math.min(cardY, centerY), 1, math.max(1, math.abs(cardY - centerY)),
+            0.7, 0.7, 0.44, 0.16)
+        local selected = card.slot == self.window.activeSlot
+        self:drawRect(x, y, width, height, 0.94, 0.1, 0.11, 0.12)
+        self:drawRectBorder(x, y, width, height, 1,
+            selected and 0.98 or 0.38, selected and 0.62 or 0.43, selected and 0.18 or 0.47)
+        self:drawText(fit(tr("Slot_" .. card.slot), width - 8), x + 4, y + 3, 0.9, 0.9, 0.9, 1, UIFont.Small)
+        local shown = card.queued or card.installed
+        if shown then
+            local texture = shown:getTex()
+            if texture then self:drawTextureScaledAspect(texture, x + 4, y + 19, 20, 18, 1, 1, 1, 1) end
+            self:drawText(fit(shown:getName(), width - 28), x + 26, y + 21,
+                card.queued and 1 or 0.8, card.queued and 0.72 or 0.85, 0.4, 1, UIFont.Small)
+        else
+            self:drawText(tr("Empty"), x + 5, y + 21, 0.55, 0.58, 0.61, 1, UIFont.Small)
+        end
+    end
+end
+
+function D:onMouseDown(x, y)
+    for index, card in ipairs(self.window:diagramCards()) do
+        local left, top, width, height = self:cardRect(index)
+        if x >= left and x < left + width and y >= top and y < top + height then
+            self.window:selectSlot(card)
+            return true
+        end
+    end
+    return false
 end
 
 function W:createChildren()
@@ -194,16 +281,29 @@ function W:createChildren()
     self.middleX = 20 + self.leftWidth
     self.optionsX = self.middleX + self.middleWidth + 10
     self.optionsWidth = self.width - self.optionsX - 10
-    self.mountWidth = math.floor((self.optionsWidth - 6) / 2)
-    self.partsX = self.optionsX + self.mountWidth + 6
-    -- Reserve a compact tool-status strip between the lists and cart.
-    local height = self.height - 306
-    self.toolY = 66 + height + 6
-    self.weapons = list(10, 66, self.leftWidth, height, 66, drawItem)
-    self.slots = list(self.middleX, 66, self.middleWidth, height, 124, drawSlot)
-    self.mounts = list(self.optionsX, 66, self.mountWidth, height, 66, drawItem)
-    self.parts = list(self.partsX, 66, self.optionsWidth - self.mountWidth - 6, height, 66, drawItem)
-    self.cart = list(10, self.height - 152, self.width - 20, 100, 66, drawItem)
+    self.cartY = self.height - 146
+    self.toolY = self.cartY - 50
+    local panelBottom = self.cartY - 64
+    local panelHeight = panelBottom - 66
+    local diagramHeight = math.min(194, math.max(135, math.floor(panelHeight * 0.6)))
+    self.searchEntry = ISTextEntryBox:new("", 10, 66, self.leftWidth, 26)
+    self.searchEntry:initialise(); self.searchEntry:instantiate()
+    self.searchEntry:setPlaceholderText(tr("Search"))
+    self.searchEntry.target = self
+    self.searchEntry.onTextChangeFunction = W.filterWeapons
+    self:addChild(self.searchEntry)
+    self.weapons = list(10, 99, self.leftWidth, panelBottom - 99, 66, drawItem)
+    self.diagram = D:new(self.middleX, 66, self.middleWidth, diagramHeight)
+    self.diagram.window = self
+    self.diagram:initialise(); self.diagram:instantiate(); self:addChild(self.diagram)
+    self.slots = list(self.middleX, 74 + diagramHeight, self.middleWidth,
+        panelHeight - diagramHeight - 8, 74, drawSlot)
+    self.mountHeight = math.min(92, math.floor(panelHeight * 0.3))
+    self.partsY = 66 + self.mountHeight + 30
+    self.mounts = list(self.optionsX, 66, self.optionsWidth, self.mountHeight, 66, drawItem)
+    self.parts = list(self.optionsX, self.partsY, self.optionsWidth,
+        panelBottom - self.partsY, 66, drawItem)
+    self.cart = list(10, self.cartY, self.width - 20, 100, 66, drawItem)
     self.weapons:setOnMouseDownFunction(self, W.selectWeapon)
     self.slots:setOnMouseDownFunction(self, W.selectSlot)
     self.slots:setOnMouseDoubleClick(self, W.removePart)
@@ -240,6 +340,7 @@ end
 
 function W:resetView(code)
     self.target, self.plan, self.choices, self.activeSlot = nil, nil, {}, nil
+    self.view = nil
     self.slots:clear(); self.mounts:clear(); self.parts:clear(); self.cart:clear()
     self.applyButton:setEnable(false); self.status = tr(code)
 end
@@ -258,15 +359,21 @@ end
 
 function W:reload()
     if self.pending then return end
-    local wanted = self.target and self.target.item:getID() or self.initialID
     local ok, scan = pcall(S.scan, self.player)
-    self.weapons:clear()
     if not ok then self:resetView("Unsupported"); return end
     self.scan = scan
     self:refreshTools(scan)
+    self:filterWeapons()
+end
+
+function W:filterWeapons()
+    if not self.scan or self.pending then return end
+    local wanted = self.target and self.target.item:getID() or self.initialID
+    local query = self.searchEntry:getText():lower()
+    self.weapons:clear()
     local selection
-    for _, entry in ipairs(scan.entries) do
-        if M.supported(entry.item) then
+    for _, entry in ipairs(self.scan.entries) do
+        if M.supported(entry.item) and entry.item:getName():lower():find(query, 1, true) then
             entry.subtitle = tr(entry.kind)
             self.weapons:addItem(entry.item:getName(), entry, entry.item:getName() .. " <LINE> " .. entry.subtitle)
             if entry.item:getID() == wanted then selection = entry end
@@ -283,6 +390,9 @@ end
 function W:selectSlot(card)
     if self.pending then return end
     self.activeSlot = card.slot
+    for index, row in ipairs(self.slots.items) do
+        if row.item == card then self.slots.selected = index; break end
+    end
     self:showOptions()
 end
 
@@ -438,12 +548,12 @@ function W:prerender()
     self:drawText(tr("Slots"), self.middleX, 42, 1, 1, 1, 1, UIFont.Small)
     self:drawText(fit(tr("Mounts"), self.mounts.width), self.optionsX, 42, 1, 1, 1, 1, UIFont.Small)
     local label = self.activeSlot and tr("Slot_" .. self.activeSlot) or tr("Options")
-    self:drawText(fit(label, self.parts.width), self.partsX, 42, 1, 1, 1, 1, UIFont.Small)
-    self:drawText(fit(self.status or tr("ChooseSlot"), self.width - 20), 10, self.height - 194, 1, 0.85, 0.5, 1, UIFont.Small)
+    self:drawText(fit(label, self.parts.width), self.optionsX, self.partsY - 21, 1, 1, 1, 1, UIFont.Small)
+    self:drawText(fit(self.status or tr("ChooseSlot"), self.width - 100), 10, self.cartY - 57, 1, 0.85, 0.5, 1, UIFont.Small)
     local toolsX = self.width - 72
     self:drawToolStatus(toolsX, self.screwdriver, "Item_Screwdriver")
     self:drawToolStatus(toolsX + 36, self.wrench, "Item_Wrench")
-    self:drawText(tr("Cart"), 10, self.height - 174, 0.8, 0.8, 0.8, 1, UIFont.Small)
+    self:drawText(tr("Cart"), 10, self.cartY - 19, 0.8, 0.8, 0.8, 1, UIFont.Small)
 end
 
 function W:close()

@@ -29,13 +29,35 @@ local player={getPlayerNum=function() return 0 end,getInventory=function() retur
 W.open(player,gun)
 local w=assert(GMAWWindows[0])
 assert(w.weapons.width>0 and w.slots.width>0 and w.mounts.width>0 and w.parts.width>0)
+assert(w.searchEntry.y < w.weapons.y and w.searchEntry.placeholder == "Search")
 assert(w.screwdriver and w.screwdriver.item==screwdriver and w.wrench==nil,
     "working nearby screwdriver is enabled; broken nearby wrench is disabled")
 assert(w.weapons.x+w.weapons.width<w.slots.x and w.slots.x+w.slots.width<w.mounts.x)
-assert(w.mounts.width <= w.optionsWidth / 2 + 1 and w.parts.width <= w.optionsWidth / 2 + 1,
-    "right panel is split into two equal columns")
+assert(w.diagram.width == w.slots.width and w.diagram.y < w.slots.y,
+    "weapon diagram sits above the complete scrolling slot list")
+assert(w.mounts.width == w.optionsWidth and w.parts.width == w.optionsWidth
+    and w.mounts.y < w.parts.y, "mounts and selected-slot options share the right column")
 assert(#w.slots.items==2 and #w.mounts.items==1 and w.mounts.items[1].item.item==rail)
 w:selectSlot(w.view.bySlot.Scope)
+assert(w:diagramCards()[1].slot == "Scope", "priority slot appears in diagram")
+local quickX, quickY = w.diagram:cardRect(1)
+w.diagram:onMouseDown(quickX + 8, quickY + 8)
+assert(w.activeSlot == "Scope", "diagram card selects the same slot as the complete list")
+assert(w.slots.items[w.slots.selected].item.slot == "Scope", "diagram selection highlights the complete list")
+local fullWidth = w.diagram.width
+w.diagram.width = 300
+assert(#w:diagramCards() == 2, "narrow diagrams keep the remaining slots in the scrolling list")
+w.diagram.width = fullWidth
+local originalView = w.view
+local many = {slots={},bySlot={}}
+for _,slot in ipairs(M.slots) do
+    local card = {slot=slot}
+    many.slots[#many.slots + 1] = card; many.bySlot[slot] = card
+end
+w.view = many
+assert(#w:diagramCards() == 6 and #w.view.slots == #M.slots,
+    "diagram shortcuts never truncate the full supported slot model")
+w.view = originalView
 assert(#w.parts.items==2 and w.parts.items[1].item.item==scope and w.parts.items[2].item.dim)
 w:choosePart(w.parts.items[2].item)
 assert(#w.plan==0, "missing choice must not be queued")
@@ -45,7 +67,7 @@ assert(w.activeSlot=="Scope" and w.applyButton.enabled)
 w.pending=true; w:selectSlot(w.view.bySlot.RailUp); w:clear()
 assert(w.activeSlot=="Scope" and #w.plan==1, "pending state cannot be changed")
 w.pending=false
-w.weapons:doDrawItem(0,w.weapons.items[1]); w.slots:doDrawItem(0,w.slots.items[2])
+w.weapons:doDrawItem(0,w.weapons.items[1]); w.slots:doDrawItem(0,w.slots.items[2]); w.diagram:prerender()
 w.parts:doDrawItem(0,w.parts.items[1]); w.parts:doDrawItem(66,w.parts.items[2]); w.cart:doDrawItem(0,w.cart.items[1]); w:prerender()
 local hasMissingToolBorder=false
 for _,draw in ipairs(w.draws) do if draw.border and draw.r>0.9 and draw.g<0.3 then hasMissingToolBorder=true end end
@@ -56,9 +78,16 @@ for _,list in ipairs({w.weapons,w.slots,w.mounts,w.parts,w.cart}) do
     for _,draw in ipairs(list.draws) do if draw.texture then textures[draw.texture]=draw end end
 end
 assert(textures["gun-icon"] and textures["scope-icon"], "item texture must actually be drawn")
+local diagramGun = false
+for _,draw in ipairs(w.diagram.draws) do if draw.texture == "gun-icon" then diagramGun = true end end
+assert(diagramGun, "selected weapon is shown in the center diagram")
 assert(textures["missing-icon"].alpha<1 and textures["missing-icon"].r<1, "missing icon is grey")
 w.weapons.mouseOver=true; w.weapons.mouseY=0; w.weapons:updateTooltip()
 assert(w.weapons.items[1].item.item==gun, "weapon row holds selected gun")
+w.searchEntry:setText("does not exist")
+assert(#w.weapons.items==0 and #w.slots.items==0 and w.target==nil, "search hides unmatched weapons and clears stale preview")
+w.searchEntry:setText("gun")
+assert(#w.weapons.items==1 and w.target.item==gun, "search restores the supported weapon")
 assert(w.weapons.tooltipUI, "weapon hover creates tooltip")
 assert(w.weapons.tooltipUI.item==gun and w.weapons.tooltipUI.followMouse and w.weapons.tooltipUI.layout,
     "weapon hover uses the workbench tooltip with vanilla inventory styling")
@@ -99,7 +128,7 @@ local card=w.view.bySlot.Scope
 card.installed=scope
 local rowIndex
 for i,row in ipairs(w.slots.items) do if row.item==card then rowIndex=i end end
-w.slots:onMouseDown(w.slots.width-38,(rowIndex-1)*124+15)
+w.slots:onMouseDown(w.slots.width-38,(rowIndex-1)*w.slots.itemheight+15)
 assert(#removed==1 and removed[1]=="Scope" and w.pending, "minus starts removal")
 w.slots.doubleCallback(w,card)
 assert(#removed==1, "pending prevents duplicate removal")

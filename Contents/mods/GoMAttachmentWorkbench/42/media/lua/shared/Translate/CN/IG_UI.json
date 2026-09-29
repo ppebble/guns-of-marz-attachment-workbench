@@ -73,5 +73,6 @@
     "IGUI_GMAW_TooltipAimingTime": "瞄准时间",
     "IGUI_GMAW_TooltipHitChance": "命中率",
     "IGUI_GMAW_TooltipClipSize": "弹匣容量",
-    "IGUI_GMAW_TooltipLowLight": "低光加成"
+    "IGUI_GMAW_TooltipLowLight": "低光加成",
+    "IGUI_GMAW_Search": "搜索武器..."
 }

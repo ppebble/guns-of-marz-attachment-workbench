@@ -18,7 +18,11 @@ foreach ($name in @('RequiredAttachment','PreventRemovals','UpgradeExclusives','
 foreach ($name in @('AttachmentsRequiredParts','PermanentAttachments','UniversalAttachments','UpgradeExclusives')) {
     $files += Join-Path $gom "media/lua/shared/MarzWeapons/Registries/$name.lua"
 }
-if (-not $Legacy) { $files += Join-Path $gom 'media/lua/shared/MarzWeapons/OnCreate/AttachAndDetach.lua' }
+if (-not $Legacy) {
+    # GoM's current attachment registry now imports this Gunworks helper.
+    $files += Join-Path $framework 'media/lua/shared/GunworksUtils/GunworksAttachAndDetach.lua'
+    $files += Join-Path $gom 'media/lua/shared/MarzWeapons/OnCreate/AttachAndDetach.lua'
+}
 foreach ($name in @('Attachments','Model','Planner')) { $files += Join-Path $repo "Contents/mods/GoMAttachmentWorkbench/42/media/lua/shared/GMAW/$name.lua" }
 $files += Join-Path $repo 'evidence/installed-fixtures.test.lua'
 $files += Join-Path $repo 'tests/installed.test.lua'

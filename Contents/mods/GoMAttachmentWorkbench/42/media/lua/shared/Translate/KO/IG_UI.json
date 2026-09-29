@@ -73,5 +73,6 @@
     "IGUI_GMAW_TooltipAimingTime": "조준 시간",
     "IGUI_GMAW_TooltipHitChance": "명중률",
     "IGUI_GMAW_TooltipClipSize": "탄창 용량",
-    "IGUI_GMAW_TooltipLowLight": "저조도 보정"
+    "IGUI_GMAW_TooltipLowLight": "저조도 보정",
+    "IGUI_GMAW_Search": "무기 검색..."
 }
