@@ -26,7 +26,10 @@ local scan={entries={{item=gun,kind="Player",key="player"},{item=screwdriver,kin
 M.supported=function() return true end; M.candidates=function() return catalog end
 M.toolKey=function() return "Tools" end; S.scan=function() return scan end
 local player={getPlayerNum=function() return 0 end,getInventory=function() return inventory({}) end}
+local originalGetCore=getCore
+getCore=function() return {getScreenWidth=function() return 1920 end,getScreenHeight=function() return 1080 end} end
 W.open(player,gun)
+getCore=originalGetCore
 local w=assert(GMAWWindows[0])
 assert(w.weapons.width>0 and w.slots.width>0 and w.mounts.width>0 and w.parts.width>0)
 assert(w.searchEntry.y < w.weapons.y and w.searchEntry.placeholder == "Search")
@@ -37,6 +40,11 @@ assert(w.diagram.width == w.slots.width and w.diagram.y < w.slots.y,
     "weapon diagram sits above the complete scrolling slot list")
 assert(w.mounts.width == w.optionsWidth and w.parts.width == w.optionsWidth
     and w.mounts.y < w.parts.y, "mounts and selected-slot options share the right column")
+local formerRightWidth = w.width - (20 + w.leftWidth + math.floor((w.width - 40) * 0.39) + 10) - 10
+assert(w.optionsWidth <= formerRightWidth * 0.71 and w.middleWidth > w.optionsWidth,
+    "right column shrinks by about 30 percent in favor of the weapon diagram")
+assert(w.diagram.height == 254 and w.slots.height == 3 * w.slots.itemheight,
+    "weapon diagram grows until the complete slot list shows three rows")
 assert(#w.slots.items==2 and #w.mounts.items==1 and w.mounts.items[1].item.item==rail)
 w:selectSlot(w.view.bySlot.Scope)
 assert(w:diagramCards()[1].slot == "Scope", "priority slot appears in diagram")
@@ -82,6 +90,14 @@ local diagramGun = false
 for _,draw in ipairs(w.diagram.draws) do if draw.texture == "gun-icon" then diagramGun = true end end
 assert(diagramGun, "selected weapon is shown in the center diagram")
 assert(textures["missing-icon"].alpha<1 and textures["missing-icon"].r<1, "missing icon is grey")
+w.parts.draws={}; w.parts:setYScroll(-20)
+w.parts:doDrawItem(0,w.parts.items[1])
+assert(#w.parts.draws>0, "partly scrolled part row remains visible")
+for _,draw in ipairs(w.parts.draws) do
+    assert(draw.y + w.parts:getYScroll() >= 0,
+        "part-row drawing must not escape above the list viewport")
+end
+w.parts:setYScroll(0)
 w.weapons.mouseOver=true; w.weapons.mouseY=0; w.weapons:updateTooltip()
 assert(w.weapons.items[1].item.item==gun, "weapon row holds selected gun")
 w.searchEntry:setText("does not exist")

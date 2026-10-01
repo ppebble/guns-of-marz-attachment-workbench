@@ -32,12 +32,12 @@ function UI:isMouseOver() return self.mouseOver end
 function UI:isMouseOverScrollBar() return false end
 function UI:getMouseX() return self.mouseX or 0 end
 function UI:getMouseY() return self.mouseY or 0 end
-function UI:drawRect() end
-function UI:drawRectBorder(x,y,w,h,a,r,g,b) self.draws[#self.draws+1]={border=true,r=r,g=g,b=b} end
-function UI:drawText(text) self.draws[#self.draws+1]={text=text} end
+function UI:drawRect(x,y,w,h) self.draws[#self.draws+1]={y=y,height=h} end
+function UI:drawRectBorder(x,y,w,h,a,r,g,b) self.draws[#self.draws+1]={border=true,y=y,height=h,r=r,g=g,b=b} end
+function UI:drawText(text,x,y) self.draws[#self.draws+1]={text=text,y=y} end
 function UI:drawTextureScaledAspect(texture,x,y,w,h,alpha,r,g,b)
     assert(texture and w>0 and h>0)
-    self.draws[#self.draws+1]={texture=texture,alpha=alpha,r=r}
+    self.draws[#self.draws+1]={texture=texture,y=y,height=h,alpha=alpha,r=r}
 end
 function UI:prerender() end
 function UI:update() end

@@ -44,9 +44,13 @@ end
 
 local function frame(list, y, selected)
     local width = list.width - 16
-    list:drawRect(2, y + 2, width - 4, list.itemheight - 5, 0.8, 0.12, 0.12, 0.12)
-    list:drawRectBorder(2, y + 2, width - 4, list.itemheight - 5, 0.9,
-        selected and 0.95 or 0.3, selected and 0.6 or 0.3, selected and 0.15 or 0.3)
+    local top = list.clipTop and math.max(y + 2, -list:getYScroll()) or y + 2
+    local height = y + list.itemheight - 3 - top
+    if height > 0 then
+        list:drawRect(2, top, width - 4, height, 0.8, 0.12, 0.12, 0.12)
+        list:drawRectBorder(2, top, width - 4, height, 0.9,
+            selected and 0.95 or 0.3, selected and 0.6 or 0.3, selected and 0.15 or 0.3)
+    end
     return width
 end
 
@@ -150,11 +154,16 @@ local function drawItem(list, y, row)
     local d = row.item
     local width = frame(list, y, row.index == list.selected)
     local shade = d.dim and 0.45 or 0.95
-    icon(list, d.item, 8, y + 8, 48, d.dim)
-    list:drawText(fit(row.text, width - 70), 64, y + 9, shade, shade, shade, 1, UIFont.Small)
+    local top = list.clipTop and -list:getYScroll() or -math.huge
+    if y + 8 >= top then icon(list, d.item, 8, y + 8, 48, d.dim) end
+    if y + 9 >= top then
+        list:drawText(fit(row.text, width - 70), 64, y + 9, shade, shade, shade, 1, UIFont.Small)
+    end
     local green = not d.dim and (d.current or (d.quantity and d.quantity > 0))
-    list:drawText(fit(d.subtitle or "", width - 70), 64, y + 32,
-        green and 0.4 or shade, green and 0.95 or shade, green and 0.3 or shade, 1, UIFont.Small)
+    if y + 32 >= top then
+        list:drawText(fit(d.subtitle or "", width - 70), 64, y + 32,
+            green and 0.4 or shade, green and 0.95 or shade, green and 0.3 or shade, 1, UIFont.Small)
+    end
     return y + list.itemheight
 end
 
@@ -277,7 +286,7 @@ function W:createChildren()
     end
     local usable = self.width - 40
     self.leftWidth = math.floor(usable * 0.24)
-    self.middleWidth = math.floor(usable * 0.39)
+    self.middleWidth = math.floor(usable * 0.50)
     self.middleX = 20 + self.leftWidth
     self.optionsX = self.middleX + self.middleWidth + 10
     self.optionsWidth = self.width - self.optionsX - 10
@@ -285,7 +294,7 @@ function W:createChildren()
     self.toolY = self.cartY - 50
     local panelBottom = self.cartY - 64
     local panelHeight = panelBottom - 66
-    local diagramHeight = math.min(194, math.max(135, math.floor(panelHeight * 0.6)))
+    local diagramHeight = math.min(254, math.max(135, math.floor(panelHeight * 0.6)))
     self.searchEntry = ISTextEntryBox:new("", 10, 66, self.leftWidth, 26)
     self.searchEntry:initialise(); self.searchEntry:instantiate()
     self.searchEntry:setPlaceholderText(tr("Search"))
@@ -303,6 +312,9 @@ function W:createChildren()
     self.mounts = list(self.optionsX, 66, self.optionsWidth, self.mountHeight, 66, drawItem)
     self.parts = list(self.optionsX, self.partsY, self.optionsWidth,
         panelBottom - self.partsY, 66, drawItem)
+    -- Keep partial rows inside this viewport even when the list stencil alone
+    -- does not hide their draw calls while scrolling.
+    self.parts.clipTop = true
     self.cart = list(10, self.cartY, self.width - 20, 100, 66, drawItem)
     self.weapons:setOnMouseDownFunction(self, W.selectWeapon)
     self.slots:setOnMouseDownFunction(self, W.selectSlot)
