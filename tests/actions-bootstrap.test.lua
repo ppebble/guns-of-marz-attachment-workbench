@@ -1,5 +1,5 @@
 for _, name in ipairs({"ISUI/ISInventoryPaneContextMenu","ISUI/ISInventoryPage","TimedActions/ISQueueActionsAction",
-    "TimedActions/ISInventoryTransferUtil","WeaponSystems/Hooks/WeaponUpgradeHooks","MarzWeapons/ISUI/RequiredToolVisualEquipt"}) do modules[name]={} end
+    "TimedActions/ISInventoryTransferUtil","WeaponSystems/Hooks/WeaponUpgradeHooks","MarzWeapons/Hooks/CanShoot"}) do modules[name]={} end
 local Base = {}
 function Base:derive() local t = {}; setmetatable(t, {__index=self}); return t end
 function Base.new(class, player) return setmetatable({character=player}, {__index=class}) end
@@ -34,7 +34,7 @@ end
 function ISInventoryPaneContextMenu.onUpgradeWeapon(weapon,part,player)
     ISTimedActionQueue.add({player=player,kind="install",weapon=weapon,part=part,perform=function() end})
 end
-ISUpgradeWeapon={new=function(_,player,weapon,part,outcome)
+ISUpgradeWeapon={complete=function() end,new=function(_,player,weapon,part,outcome)
     return {player=player,kind="install",weapon=weapon,part=part,outcome=outcome,perform=function() end}
 end}
 ISRemoveWeaponUpgrade={complete=function() end}

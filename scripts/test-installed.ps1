@@ -33,6 +33,8 @@ $files += Join-Path $framework 'media/lua/shared/WeaponSystems/Hooks/WeaponUpgra
 if ($Legacy) {
     $files += Join-Path $repo 'tests/legacy-native-bootstrap.test.lua'
     $files += Join-Path $gom 'media/lua/shared/MarzWeapons/Hooks/UpgradeRemoveUpgradeReequipt.lua'
+} else {
+    $files += Join-Path $gom 'media/lua/shared/MarzWeapons/Hooks/CanShoot.lua'
 }
 $files += Join-Path $repo 'Contents/mods/GoMAttachmentWorkbench/42/media/lua/shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $repo 'tests/native-actions.test.lua'

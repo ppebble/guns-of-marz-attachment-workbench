@@ -24,6 +24,35 @@ public class TranslationHarness {
             if (name.equals("CN") && map.get("IGUI_GMAW_Title").codePoints().noneMatch(c -> c >= 0x4E00 && c <= 0x9FFF))
                 throw new AssertionError("Simplified Chinese encoding");
             System.out.println("PASS native translation reader " + name + ": " + map.size() + " keys");
+            Map<String,String> sandbox = new HashMap<>();
+            reader.invoke(null, args[0], "Sandbox", sandbox, constructor.newInstance(name, name, "EN", false), Function.identity());
+            for (String key : List.of("Sandbox_GoMAttachmentWorkbench",
+                    "Sandbox_GoMAttachmentWorkbench_ShowOnlyOwnedParts",
+                    "Sandbox_GoMAttachmentWorkbench_ShowOnlyOwnedParts_tooltip")) {
+                if (!sandbox.containsKey(key) || sandbox.get(key).isBlank()) throw new AssertionError("Sandbox translation: " + name + " " + key);
+            }
+            if (sandbox.size() != 3) throw new AssertionError("Sandbox translation parity: " + name);
+            System.out.println("PASS native sandbox translation reader " + name + ": 3 keys");
         }
+        Class<?> custom = Class.forName("zombie.sandbox.CustomSandboxOptions");
+        Object definitions = custom.getConstructor().newInstance();
+        Method readOptions = custom.getDeclaredMethod("readFile", String.class);
+        readOptions.setAccessible(true);
+        String optionPath = java.nio.file.Path.of(args[0], "media", "sandbox-options.txt").toString();
+        if (!Boolean.TRUE.equals(readOptions.invoke(definitions, optionPath))) throw new AssertionError("Sandbox parse failed");
+        Field optionsField = custom.getDeclaredField("options");
+        optionsField.setAccessible(true);
+        List<?> options = (List<?>) optionsField.get(definitions);
+        if (options.size() != 1) throw new AssertionError("Sandbox option count");
+        Object option = options.getFirst();
+        Class<?> optionType = option.getClass();
+        if (!optionType.getSimpleName().equals("CustomBooleanSandboxOption")
+                || !optionType.getField("id").get(option).equals("GoMAttachmentWorkbench.ShowOnlyOwnedParts")
+                || optionType.getField("defaultValue").getBoolean(option)
+                || !optionType.getField("page").get(option).equals("GoMAttachmentWorkbench")
+                || !optionType.getField("translation").get(option).equals("GoMAttachmentWorkbench_ShowOnlyOwnedParts")) {
+            throw new AssertionError("Sandbox option contract");
+        }
+        System.out.println("PASS native sandbox parser: owned-only Boolean, default false");
     }
 }

@@ -4,9 +4,6 @@ require "TimedActions/ISInventoryTransferUtil"
 require "TimedActions/ISBaseTimedAction"
 require "WeaponSystems/Hooks/WeaponUpgradeHooks"
 require "GMAW/NativeCompletion"
-if getActivatedMods():contains("GunsOfMarz") then
-    require "MarzWeapons/ISUI/RequiredToolVisualEquipt"
-end
 local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
 local S = require "GMAW/Sources"

@@ -40,3 +40,27 @@ local nearbyScan={entries={{item=screwdriver,key="2:object",kind="Furniture"}}}
 view=V.build(cat, {}, available, {}, {}, {}, nearbyScan)
 assert(not view.bySlot.Scope.options[1].dim and not view.bySlot.Scope.options[1].reason,
     "nearby required tool keeps a compatible option selectable")
+
+-- Owned-only is a display filter, including carried bags and generic rails.
+local savedSandbox = SandboxVars
+SandboxVars = {GoMAttachmentWorkbench={ShowOnlyOwnedParts=true}}
+local ownedSources = {rail={{item=rail,kind="Player",key="0:player/bag:10"}},
+    scope={{item=scope,kind="Furniture",key="2:object"}},absent={}}
+view=V.build(cat, {}, ownedSources, {}, {}, {}, nearbyScan)
+assert(not view.bySlot.Scope and #view.bySlot.RailUp.options == 1,
+    "carried bag part is shown; nearby-only and missing parts are hidden")
+view=V.build(cat, {Scope=absent}, ownedSources, {}, {}, {}, nearbyScan)
+assert(#view.bySlot.Scope.options == 1 and view.bySlot.Scope.options[1].current,
+    "installed part remains visible without a carried spare")
+view=V.build(cat, {}, ownedSources, {Scope="scope"}, {}, {}, nearbyScan)
+assert(#view.bySlot.Scope.options == 1 and view.bySlot.Scope.options[1].queued,
+    "queued nearby part remains visible and can be cleared")
+local genericCat={rail={slot="RailUp",part=rail,all={},any={},consume="genericRail"}}
+local genericAvailable=require("GMAW/Model").availability(genericCat,
+    {byType={genericRail={{item=item("genericRail",80),kind="Player",key="0:player"}}}})
+assert(V.build(genericCat, {}, genericAvailable, {}, {}, {}, nearbyScan).bySlot.RailUp,
+    "generic carried rail exposes its directional outcome")
+SandboxVars.GoMAttachmentWorkbench.ShowOnlyOwnedParts=false
+assert(#V.build(cat, {}, ownedSources, {}, {}, {}, nearbyScan).bySlot.Scope.options == 2,
+    "disabled option restores all compatible parts")
+SandboxVars = savedSandbox

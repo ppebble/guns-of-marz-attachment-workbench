@@ -10,3 +10,5 @@ modules["WeaponSystems/Utils/Underbarrel"].HandleAttachmentRemoval=function() en
 function syncHandWeaponFields() end
 function sendRemoveItemFromContainer() end
 function sendAddItemToContainer() end
+ISReloadWeaponAction = {canShoot=function() return true end}
+modules["TimedActions/ISReloadWeaponAction"] = ISReloadWeaponAction

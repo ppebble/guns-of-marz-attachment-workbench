@@ -1,20 +1,22 @@
--- Gunworks normal (non-generic) removal completes its mutations but omits
--- the Boolean result required by B42 NetTimedAction.perform. Keep upstream
--- behavior and explicit failures; normalize only a successful nil return.
+-- Preserve upstream mutations and explicit failures; normalize a successful
+-- nil return to the Boolean required by B42 NetTimedAction.perform.
 require "WeaponSystems/Hooks/WeaponUpgradeHooks"
--- Old Version wraps both completion methods for animation sync and drops
--- their return values. Load that hook first so our Boolean repair is outermost.
+-- Load the active GoM completion hook before applying the outermost repair.
+-- Current CanShoot and the Old Version hook both drop completion returns.
+if getActivatedMods():contains("GunsOfMarz") then
+    require "MarzWeapons/Hooks/CanShoot"
+end
 if getActivatedMods():contains("MarzGuns") then
     require "MarzWeapons/Hooks/UpgradeRemoveUpgradeReequipt"
-    if not ISUpgradeWeapon.GMAWCompletionReturnFixed then
-        local complete = ISUpgradeWeapon.complete
-        function ISUpgradeWeapon:complete()
-            local result = complete(self)
-            if result == nil then return true end
-            return result
-        end
-        ISUpgradeWeapon.GMAWCompletionReturnFixed = true
+end
+if not ISUpgradeWeapon.GMAWCompletionReturnFixed then
+    local complete = ISUpgradeWeapon.complete
+    function ISUpgradeWeapon:complete()
+        local result = complete(self)
+        if result == nil then return true end
+        return result
     end
+    ISUpgradeWeapon.GMAWCompletionReturnFixed = true
 end
 if not ISRemoveWeaponUpgrade.GMAWCompletionReturnFixed then
     local complete = ISRemoveWeaponUpgrade.complete

@@ -1,0 +1,5 @@
+{
+    "Sandbox_GoMAttachmentWorkbench": "GoM 配件工作台",
+    "Sandbox_GoMAttachmentWorkbench_ShowOnlyOwnedParts": "仅显示随身配件",
+    "Sandbox_GoMAttachmentWorkbench_ShowOnlyOwnedParts_tooltip": "仅显示物品栏和随身背包中的配件。已安装和已加入工作清单的配件仍会显示。仅在附近容器或地面上的配件会被隐藏。关闭后显示所有兼容配件。"
+}

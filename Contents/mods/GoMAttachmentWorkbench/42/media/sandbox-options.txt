@@ -1,0 +1,9 @@
+VERSION = 1,
+
+option GoMAttachmentWorkbench.ShowOnlyOwnedParts
+{
+    type = boolean,
+    default = false,
+    page = GoMAttachmentWorkbench,
+    translation = GoMAttachmentWorkbench_ShowOnlyOwnedParts,
+}

@@ -27,3 +27,17 @@ assert(remove:complete() and not gun.parts.RailUp)
 local found=false
 for _,p in ipairs(inv.values) do if p:getFullType()=="MarzGuns.Picatinny_Rail" then found=true end end
 assert(found, "native removal returns the generic rail through Gunworks")
+
+local xm177 = instanceItem("MarzGuns.XM177")
+xm177.parts = {}
+xm177.getWeaponPart = gun.getWeaponPart
+xm177.attachWeaponPart = gun.attachWeaponPart
+xm177.detachWeaponPart = gun.detachWeaponPart
+xm177.getAllWeaponParts = gun.getAllWeaponParts
+inv:AddItem(xm177)
+local genericLower
+for _, p in ipairs(inv.values) do if p:getFullType() == "MarzGuns.Picatinny_Rail" then genericLower = p; break end end
+local lowerRail = ISUpgradeWeapon:new(player, xm177, assert(genericLower), "MarzGuns.Picatinny_Rail_Down")
+assert(lowerRail:isValid(), "XM177 lower rail is valid")
+assert(lowerRail:complete() == true, "XM177 lower rail completion returns Boolean through GoM hooks")
+assert(xm177.parts.RailDown:getFullType() == "MarzGuns.Picatinny_Rail_Down")

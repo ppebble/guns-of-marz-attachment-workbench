@@ -1,0 +1,5 @@
+{
+    "Sandbox_GoMAttachmentWorkbench": "GoM 부품 작업대",
+    "Sandbox_GoMAttachmentWorkbench_ShowOnlyOwnedParts": "소지한 부품만 표시",
+    "Sandbox_GoMAttachmentWorkbench_ShowOnlyOwnedParts_tooltip": "인벤토리와 소지한 가방에 있는 부품만 표시합니다. 장착 중이거나 작업 목록에 담은 부품은 계속 표시합니다. 주변 보관함이나 바닥에만 있는 부품은 숨깁니다. 끄면 호환되는 모든 부품을 표시합니다."
+}

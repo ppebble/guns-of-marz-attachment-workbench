@@ -17,6 +17,8 @@ end
 -- Rendering data only. Installed, queued, and merely compatible are distinct.
 function V.build(catalog, installed, available, choices, player, weapon, scan)
     local view = { slots = {}, bySlot = {} }
+    local onlyOwned = SandboxVars and SandboxVars.GoMAttachmentWorkbench
+        and SandboxVars.GoMAttachmentWorkbench.ShowOnlyOwnedParts == true
     view.plan, view.reason = P.solve(catalog, installed, available, V.choices(choices, catalog))
     local queued = {}
     for _, step in ipairs(view.plan or {}) do queued[step.slot] = step.fullType end
@@ -25,7 +27,17 @@ function V.build(catalog, installed, available, choices, player, weapon, scan)
         local queuedType = queued[slot]
         if queuedType then card.queued = catalog[queuedType].part; card.automatic = choices[slot] == nil end
         for fullType, c in pairs(catalog) do
-            if c.slot == slot then
+            local current = card.installed and card.installed:getFullType() == fullType
+            local owned = false
+            if onlyOwned and c.slot == slot then
+                -- Availability already maps generic rails to their directional
+                -- outcomes; carried bags retain the Player source kind.
+                for _, source in ipairs(available[fullType] or {}) do
+                    if source.kind == "Player" then owned = true; break end
+                end
+            end
+            if c.slot == slot and (not onlyOwned or owned or current
+                or choices[slot] == fullType or queuedType == fullType) then
                 local plan, reason = P.solve(catalog, installed, available, V.choices(choices, catalog, fullType))
                 local checked, attachable = pcall(T.canAttach, c.part, player, weapon)
                 local groups = M.toolGroups(c.slot, c.part)
@@ -33,7 +45,6 @@ function V.build(catalog, installed, available, choices, player, weapon, scan)
                 -- canAttach checks GoM tools in the player inventory. A matching
                 -- nearby tool is queued first, so do not grey this option early.
                 local waitingForTransfer = checked and not attachable and nearbyTools
-                local current = card.installed and card.installed:getFullType() == fullType
                 local quantity = #(available[fullType] or {})
                 card.options[#card.options + 1] = { fullType = fullType, item = c.part,
                     quantity = quantity, current = current, queued = choices[slot] == fullType,

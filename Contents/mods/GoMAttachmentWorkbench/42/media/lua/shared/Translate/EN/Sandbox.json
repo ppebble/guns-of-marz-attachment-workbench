@@ -1,0 +1,5 @@
+{
+    "Sandbox_GoMAttachmentWorkbench": "GoM Attachment Workbench",
+    "Sandbox_GoMAttachmentWorkbench_ShowOnlyOwnedParts": "Show only carried parts",
+    "Sandbox_GoMAttachmentWorkbench_ShowOnlyOwnedParts_tooltip": "Show parts in your inventory and carried bags. Installed and queued parts remain visible. Parts found only in nearby storage or on the ground are hidden. Disabled: show all compatible parts."
+}

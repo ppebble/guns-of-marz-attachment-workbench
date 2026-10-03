@@ -28,10 +28,10 @@ assert(not M.enabled() and not M.supported(gun), "mixed GoM versions fail closed
 active.MarzGuns = nil
 assert(M.enabled() and #M.toolGroups("Barrel") == 2 and #M.toolGroups("Foregrip") == 0)
 active.GunsOfMarz, active.MarzGuns = nil, true
--- A legacy-only installation has neither of these current GoM symbols.
-modules["MarzWeapons/ISUI/RequiredToolVisualEquipt"] = nil
+-- A legacy-only installation has no current GoM tool alias.
 MarzGuns_AttachAndDetach = nil
 modules["MarzWeapons/Hooks/UpgradeRemoveUpgradeReequipt"] = true
 ISUpgradeWeapon.complete = function() end
+ISUpgradeWeapon.GMAWCompletionReturnFixed = nil
 ISRemoveWeaponUpgrade.GMAWCompletionReturnFixed = nil
 ISRemoveWeaponUpgrade.complete = function() return false end
