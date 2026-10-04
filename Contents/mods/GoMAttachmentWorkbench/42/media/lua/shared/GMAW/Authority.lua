@@ -33,9 +33,9 @@ function A.apply(player, args)
             if not action:isValid() then return false, "Detach" end
             return action:complete() ~= false, installed, "native"
         end
-        weapon:detachWeaponPart(player, installed)
-        inventory:AddItem(installed)
-        return true, installed, "add"
+        local action = ISRemoveWeaponUpgrade:new(player, weapon, args.slot)
+        if not action:isValid() then return false, "Detach" end
+        return action:complete() ~= false, installed, "native"
     end
 
     if args.kind ~= "install" or type(args.partID) ~= "number" or type(args.fullType) ~= "string"
@@ -55,15 +55,21 @@ function A.apply(player, args)
     end
     local attached = consumed
     if args.generic then
+        if Universal.GetGenericItemTypeForOutcome(weapon, args.fullType) ~= consumed:getFullType() then
+            return false, "Part"
+        end
         if not Universal.CanInstallOutcome(weapon, args.fullType, player) then return false, "Tools" end
         attached = instanceItem(args.fullType)
-        if not attached then return false, "Outcome" end
+        if not attached or not instanceof(attached, "WeaponPart") or attached:getPartType() ~= args.slot then
+            return false, "Outcome"
+        end
     elseif consumed:getFullType() ~= args.fullType or consumed:getPartType() ~= args.slot
         or not consumed:canAttach(player, weapon) then return false, "Part" end
 
-    weapon:attachWeaponPart(player, attached)
-    inventory:Remove(consumed)
-    return true, consumed, "remove"
+    -- Native completion owns refunds, underbarrel cleanup, modifiers and inventory packets.
+    local action = ISUpgradeWeapon:new(player, weapon, consumed, args.generic and args.fullType or nil)
+    if not action:isValid() then return false, "Part" end
+    return action:complete() ~= false, consumed, "native"
 end
 
 return A

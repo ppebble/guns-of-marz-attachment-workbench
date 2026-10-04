@@ -1,13 +1,7 @@
 require "GMAW/NativeCompletion"
-require "GMAW/Authority"
 local Authority = require "GMAW/Authority"
-
-local function syncWeapon(player, weapon)
-    if syncHandWeaponFields then syncHandWeaponFields(player, weapon) end
+local function syncWeapon(weapon)
     if sendItemStats then sendItemStats(weapon) end
-    if sendReplaceItemInContainer then
-        sendReplaceItemInContainer(player:getInventory(), weapon, weapon)
-    end
 end
 
 local function onClientCommand(module, command, player, args)
@@ -24,7 +18,7 @@ local function onClientCommand(module, command, player, args)
         sendAddItemToContainer(inventory, changed)
     end
     local weapon = inventory:getItemById(args.weaponID)
-    if weapon then syncWeapon(player, weapon) end
+    if weapon then syncWeapon(weapon) end
     print("[GMAW] server applied " .. tostring(args.kind) .. " weapon=" .. tostring(args.weaponID)
         .. " slot=" .. tostring(args.slot))
 end

@@ -16,12 +16,13 @@ $files += Join-Path $lua 'shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $lua 'client/GMAW/Actions.lua'
 $files += Join-Path $lua 'client/GMAW/Window.lua'
 $files += Join-Path $lua 'server/GMAW/Server.lua'
-foreach ($test in @('planner','batch','sources','presentation','window','authority','server-authority','actions')) { $files += Join-Path $repo "tests/$test.test.lua" }
+foreach ($test in @('planner','batch','sources','presentation','window','authority-bootstrap','authority','server-authority','actions')) { $files += Join-Path $repo "tests/$test.test.lua" }
 $files += Join-Path $repo 'tests/legacy-bootstrap.test.lua'
 $files += Join-Path $lua 'shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $lua 'client/GMAW/Actions.lua'
 $files += Join-Path $repo 'tests/legacy-completion.test.lua'
 $files += Join-Path $repo 'tests/actions.test.lua'
+$files += Join-Path $repo 'tests/authority-bootstrap.test.lua'
 $files += Join-Path $repo 'tests/mp-client.test.lua'
 Push-Location $GamePath
 try {

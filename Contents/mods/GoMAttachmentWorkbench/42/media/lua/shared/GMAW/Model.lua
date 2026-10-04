@@ -118,7 +118,16 @@ end
 
 function M.availability(catalog, scan)
     local out = {}
-    for fullType, c in pairs(catalog) do out[fullType] = scan.byType[c.consume] or {} end
+    for fullType, c in pairs(catalog) do
+        local sources = {}
+        -- Detached directional rails are already the outcome item. Prefer them
+        -- so shared generic kits remain available for the other directions.
+        for _, source in ipairs(scan.byType[fullType] or {}) do sources[#sources + 1] = source end
+        if c.consume and c.consume ~= fullType then
+            for _, source in ipairs(scan.byType[c.consume] or {}) do sources[#sources + 1] = source end
+        end
+        out[fullType] = sources
+    end
     return out
 end
 

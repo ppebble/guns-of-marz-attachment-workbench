@@ -55,6 +55,17 @@ local choice = { "MarzGuns.Picatinny_Rail_Up", "MarzGuns.Picatinny_Rail_Down", "
 assert(#assert(P.solve(c, {}, M.availability(c, scan), choice)) == 4)
 scan.byType["MarzGuns.Picatinny_Rail"][4] = nil
 assert(not P.solve(c, {}, M.availability(c, scan), choice), "four rails need four objects")
+-- GoM multiplayer detachment can return the directional outcome itself.
+local detachedType = "MarzGuns.Picatinny_Rail_Down"
+local detached = {item=instanceItem(detachedType),key="player",kind="Player"}
+scan.byType[detachedType] = {detached}
+local mixedPlan = assert(P.solve(c, {}, M.availability(c, scan), choice))
+assert(#mixedPlan == 4, "three generic kits plus one detached rail fill four directions")
+for _, step in ipairs(mixedPlan) do
+    if step.fullType == detachedType then assert(step.source == detached, "prefer the existing directional rail") end
+end
+local detachedPlan = assert(P.solve(c, {}, M.availability(c, {byType={[detachedType]={detached}}}), {detachedType}))
+assert(#detachedPlan == 1 and detachedPlan[1].source == detached, "reattach directional rail without a generic kit")
 for _, gun in ipairs({"MOSSBERG_590","BENELLI_M4"}) do
     local cat = M.candidates(instanceItem("MarzGuns."..gun))
     assert(cat["MarzGuns.Picatinny_Rail_Up"])

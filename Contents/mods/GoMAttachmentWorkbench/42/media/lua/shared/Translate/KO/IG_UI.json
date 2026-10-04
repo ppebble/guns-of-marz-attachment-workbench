@@ -74,5 +74,10 @@
     "IGUI_GMAW_TooltipHitChance": "명중률",
     "IGUI_GMAW_TooltipClipSize": "탄창 용량",
     "IGUI_GMAW_TooltipLowLight": "저조도 보정",
-    "IGUI_GMAW_Search": "무기 검색..."
+    "IGUI_GMAW_Search": "무기 검색...",
+    "IGUI_GMAW_ToolStatus": "도구 상태",
+    "IGUI_GMAW_ToolScrewdriver": "드라이버",
+    "IGUI_GMAW_ToolWrench": "렌치",
+    "IGUI_GMAW_ToolReady": "사용 가능",
+    "IGUI_GMAW_ToolMissing": "없음"
 }

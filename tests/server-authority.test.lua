@@ -19,8 +19,9 @@ function inv:getItemById(id)
 end
 local player = { getInventory = function() return inv end }
 local removed, added, synced, replaced = nil, nil, nil, nil
-function sendRemoveItemFromContainer(_, value) removed = value end
-function sendAddItemToContainer(_, value) added = value end
+local removePackets, addPackets = 0, 0
+function sendRemoveItemFromContainer(_, value) removed = value; removePackets=removePackets+1 end
+function sendAddItemToContainer(_, value) added = value; addPackets=addPackets+1 end
 function sendItemStats(value) synced = value end
 function sendReplaceItemInContainer(_, old, new) replaced = {old=old,new=new} end
 function syncHandWeaponFields() end
@@ -29,10 +30,13 @@ gmawServerCommand("GMAW", "apply", player, {
     kind="install", weaponID=90, partID=91, slot="Scope", fullType="MarzGuns.Scope",
 })
 assert(weapon.parts.Scope == part and removed == part and not added and synced == weapon
-    and replaced and replaced.old == weapon and replaced.new == weapon)
+    and not replaced and removePackets==1 and addPackets==0)
 
 gmawServerCommand("GMAW", "apply", player, {
     kind="detach", weaponID=90, partID=91, slot="Scope",
 })
-assert(not weapon.parts.Scope and added == part)
+assert(not weapon.parts.Scope and added == part and addPackets==1 and removePackets==1)
 M.supported = oldSupported
+
+ISUpgradeWeapon.new = authorityOriginalUpgrade
+ISRemoveWeaponUpgrade.new = authorityOriginalRemove

@@ -25,13 +25,13 @@ local player = { getInventory = function() return inv end }
 local ok, consumed, direction = Authority.apply(player, {
     kind="install", weaponID=10, partID=11, slot="RailUp", fullType="MarzGuns.Picatinny_Rail",
 })
-assert(ok and consumed == rail and direction == "remove")
+assert(ok and consumed == rail and direction == "native")
 assert(weapon.parts.RailUp == rail and not inv:getItemById(11))
 
 ok, consumed, direction = Authority.apply(player, {
     kind="detach", weaponID=10, partID=11, slot="RailUp",
 })
-assert(ok and consumed == rail and direction == "add")
+assert(ok and consumed == rail and direction == "native")
 assert(not weapon.parts.RailUp and inv:getItemById(11) == rail)
 
 assert(not Authority.apply(player, {
@@ -40,10 +40,13 @@ assert(not Authority.apply(player, {
 
 local generic = item("MarzGuns.GenericRail", 12, "RailUp")
 inv:AddItem(generic)
-function instanceItem(fullType) return item(fullType, 99, "RailUp") end
+function instanceItem(fullType) local p=item(fullType, 99, "RailUp"); p.class="WeaponPart"; return p end
+local oldGeneric = Universal.GetGenericItemTypeForOutcome
+Universal.GetGenericItemTypeForOutcome = function() return "MarzGuns.GenericRail" end
 ok, consumed, direction = Authority.apply(player, {
     kind="install", weaponID=10, partID=12, slot="RailUp", fullType="MarzGuns.Picatinny_Rail_Up", generic=true,
 })
-assert(ok and consumed == generic and direction == "remove")
+assert(ok and consumed == generic and direction == "native")
 assert(weapon.parts.RailUp:getFullType() == "MarzGuns.Picatinny_Rail_Up" and not inv:getItemById(12))
+Universal.GetGenericItemTypeForOutcome = oldGeneric
 M.supported = oldSupported

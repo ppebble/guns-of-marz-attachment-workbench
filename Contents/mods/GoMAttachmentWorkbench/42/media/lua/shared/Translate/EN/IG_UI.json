@@ -74,5 +74,10 @@
     "IGUI_GMAW_TooltipHitChance": "Hit chance",
     "IGUI_GMAW_TooltipClipSize": "Magazine capacity",
     "IGUI_GMAW_TooltipLowLight": "Low-light bonus",
-    "IGUI_GMAW_Search": "Search weapons..."
+    "IGUI_GMAW_Search": "Search weapons...",
+    "IGUI_GMAW_ToolStatus": "Tool status",
+    "IGUI_GMAW_ToolScrewdriver": "Screwdriver",
+    "IGUI_GMAW_ToolWrench": "Wrench",
+    "IGUI_GMAW_ToolReady": "Available",
+    "IGUI_GMAW_ToolMissing": "Missing"
 }

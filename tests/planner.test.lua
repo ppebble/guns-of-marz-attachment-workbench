@@ -32,6 +32,25 @@ assert(not P.solve(catalog, {}, rails, { "up", "down" }), "no generic rail dupli
 common[2] = { item = item("generic", 201), key = "floor" }
 p = assert(P.solve(catalog, {}, rails, { "up", "down" }))
 assert(p[1].source.item ~= p[2].source.item)
+-- Loose outcome rails and shared kits are both usable. Exact outcomes must
+-- win even when their source is farther away than a generic kit.
+local M = require "GMAW/Model"
+local mixedCatalog = {down=entry("RailDown", nil, "generic"), up=entry("RailUp", nil, "generic")}
+local exact = {item=item("down", 210), key="floor", kind="Floor"}
+local generic = {item=item("generic", 211), key="player", kind="Player"}
+local scan = {byType={down={exact},generic={generic}}}
+local mixed = M.availability(mixedCatalog, scan)
+assert(#mixed.down == 2 and mixed.down[1] == exact and mixed.down[2] == generic)
+assert(#mixed.up == 1 and mixed.up[1] == generic)
+p = assert(P.solve(mixedCatalog, {}, mixed, {"down", "up"}))
+assert(#p == 2 and p[1].source == exact and p[2].source == generic,
+    "use exact direction before spending a kit needed by another direction")
+assert(#scan.byType.down == 1 and #scan.byType.generic == 1, "availability must not mutate the scan")
+local exactOnly = M.availability(mixedCatalog, {byType={down={exact}}})
+assert(#assert(P.solve(mixedCatalog, {}, exactOnly, {"down"})) == 1)
+assert(not P.solve(mixedCatalog, {}, exactOnly, {"up"}), "directional rail cannot satisfy another direction")
+local unmapped = M.availability({down=entry("RailDown", nil, "down")}, scan)
+assert(#unmapped.down == 1, "unmapped part is counted once")
 local cycle = { a = entry("A", { b = true }), b = entry("B", { a = true }) }
 assert(not P.solve(cycle, {}, { a = available.up, b = available.down }, { "a" }))
 local conflict = { a = entry("A"), b = entry("B") }

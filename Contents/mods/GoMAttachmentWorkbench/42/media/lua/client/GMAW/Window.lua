@@ -291,8 +291,13 @@ function W:createChildren()
     self.optionsX = self.middleX + self.middleWidth + 10
     self.optionsWidth = self.width - self.optionsX - 10
     self.cartY = self.height - 146
-    self.toolY = self.cartY - 50
-    local panelBottom = self.cartY - 64
+    self.toolFontHeight = getTextManager():getFontHeight(UIFont.Small)
+    self.toolBoxSize = math.max(48, self.toolFontHeight * 2 + 12)
+    self.cartLabelY = self.cartY - self.toolFontHeight - 4
+    self.toolY = self.cartLabelY - self.toolBoxSize - 8
+    self.toolLabelY = self.toolY - self.toolFontHeight - 6
+    self.statusY = self.toolLabelY - self.toolFontHeight - 8
+    local panelBottom = self.statusY - 8
     local panelHeight = panelBottom - 66
     local diagramHeight = math.min(254, math.max(135, math.floor(panelHeight * 0.6)))
     self.searchEntry = ISTextEntryBox:new("", 10, 66, self.leftWidth, 26)
@@ -414,12 +419,17 @@ function W:addOption(list, option)
     elseif option.quantity == 0 then option.subtitle = tr("NotOwned")
     elseif option.dim then option.subtitle = tr(option.reason or "Unavailable")
     else option.subtitle = tr("Available") end
-    option.subtitle = option.subtitle .. "  x" .. tostring(option.quantity)
+    if not option.current then
+        option.subtitle = option.subtitle .. "  x" .. tostring(option.quantity)
+    end
     local c = self.catalog[option.fullType]
     local parents = {}
     for _, parent in ipairs(M.keys(c.all)) do parents[#parents + 1] = getItemNameFromFullType(parent) end
     for _, parent in ipairs(M.keys(c.any)) do parents[#parents + 1] = getItemNameFromFullType(parent) end
     local tooltip = option.item:getName() .. " <LINE> " .. option.subtitle .. " <LINE> " .. tr(M.toolKey(option.item))
+    if option.current then
+        tooltip = tooltip .. " <LINE> " .. tr("Available") .. "  x" .. tostring(option.quantity)
+    end
     if #parents > 0 then tooltip = tooltip .. " <LINE> " .. tr("Requires") .. ": " .. table.concat(parents, "/") end
     list:addItem(option.item:getName(), option, tooltip)
     if option.queued or option.current then list.selected = #list.items end
@@ -540,18 +550,24 @@ function W:result(code)
     self.status = tr(code)
 end
 
-function W:drawToolStatus(x, source, fallback)
+function W:drawToolStatus(x, width, source, fallback, name)
     local available = source ~= nil
     local red = available and 0.3 or 0.95
     local green = available and 0.9 or 0.2
-    self:drawRect(x, self.toolY, 28, 28, available and 0.45 or 0.65, 0.08, 0.08, 0.08)
-    self:drawRectBorder(x, self.toolY, 28, 28, 1, red, green, 0.2)
+    local size = self.toolBoxSize
+    self:drawRect(x, self.toolY, width, size, 0.85, 0.08, 0.08, 0.08)
+    self:drawRectBorder(x, self.toolY, width, size, 1, red, green, 0.2)
     local texture = toolTexture(source and source.item, fallback)
     if texture then
-        local shade = available and 1 or 0.35
-        self:drawTextureScaledAspect(texture, x + 3, self.toolY + 3, 22, 22,
-            available and 1 or 0.4, shade, shade, shade)
+        local shade = available and 1 or 0.8
+        self:drawTextureScaledAspect(texture, x + 4, self.toolY + 4, size - 8, size - 8,
+            1, shade, shade, shade)
     end
+    local textX, textWidth = x + size + 8, width - size - 16
+    local textY = self.toolY + (size - self.toolFontHeight * 2 - 4) / 2
+    self:drawText(fit(tr(name), textWidth), textX, textY, 0.95, 0.95, 0.95, 1, UIFont.Small)
+    self:drawText(fit(tr(available and "ToolReady" or "ToolMissing"), textWidth),
+        textX, textY + self.toolFontHeight + 4, red, green, 0.2, 1, UIFont.Small)
 end
 
 function W:prerender()
@@ -561,11 +577,12 @@ function W:prerender()
     self:drawText(fit(tr("Mounts"), self.mounts.width), self.optionsX, 42, 1, 1, 1, 1, UIFont.Small)
     local label = self.activeSlot and tr("Slot_" .. self.activeSlot) or tr("Options")
     self:drawText(fit(label, self.parts.width), self.optionsX, self.partsY - 21, 1, 1, 1, 1, UIFont.Small)
-    self:drawText(fit(self.status or tr("ChooseSlot"), self.width - 100), 10, self.cartY - 57, 1, 0.85, 0.5, 1, UIFont.Small)
-    local toolsX = self.width - 72
-    self:drawToolStatus(toolsX, self.screwdriver, "Item_Screwdriver")
-    self:drawToolStatus(toolsX + 36, self.wrench, "Item_Wrench")
-    self:drawText(tr("Cart"), 10, self.cartY - 19, 0.8, 0.8, 0.8, 1, UIFont.Small)
+    self:drawText(fit(self.status or tr("ChooseSlot"), self.width - 20), 10, self.statusY, 1, 0.85, 0.5, 1, UIFont.Small)
+    self:drawText(tr("ToolStatus"), 10, self.toolLabelY, 0.8, 0.8, 0.8, 1, UIFont.Small)
+    local toolWidth = math.min(math.floor((self.width - 30) / 2), math.max(240, self.toolBoxSize + self.toolFontHeight * 12))
+    self:drawToolStatus(10, toolWidth, self.screwdriver, "Item_Screwdriver", "ToolScrewdriver")
+    self:drawToolStatus(20 + toolWidth, toolWidth, self.wrench, "Item_Wrench", "ToolWrench")
+    self:drawText(tr("Cart"), 10, self.cartLabelY, 0.8, 0.8, 0.8, 1, UIFont.Small)
 end
 
 function W:close()
@@ -580,7 +597,7 @@ function W.open(player, weapon)
     local number = player:getPlayerNum()
     if GMAWWindows[number] then GMAWWindows[number]:close() end
     local width = math.min(1120, getCore():getScreenWidth() - 30)
-    local height = math.min(760, getCore():getScreenHeight() - 40)
+    local height = math.min(820, getCore():getScreenHeight() - 40)
     local o = W:new(15, 20, width, height)
     o.player, o.initialID = player, weapon:getID()
     o.title, o.resizable = tr("Title"), false

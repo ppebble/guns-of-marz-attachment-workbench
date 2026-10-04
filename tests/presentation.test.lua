@@ -60,6 +60,12 @@ local genericAvailable=require("GMAW/Model").availability(genericCat,
     {byType={genericRail={{item=item("genericRail",80),kind="Player",key="0:player"}}}})
 assert(V.build(genericCat, {}, genericAvailable, {}, {}, {}, nearbyScan).bySlot.RailUp,
     "generic carried rail exposes its directional outcome")
+local exactAvailable=require("GMAW/Model").availability(genericCat,
+    {byType={rail={{item=rail,kind="Player",key="0:player/bag:10"}}}})
+local exactView=V.build(genericCat, {}, exactAvailable, {}, {}, {}, nearbyScan)
+assert(exactView.bySlot.RailUp and exactView.bySlot.RailUp.options[1].quantity == 1
+    and not exactView.bySlot.RailUp.options[1].dim,
+    "carried directional rail is visible and selectable with owned-only enabled")
 SandboxVars.GoMAttachmentWorkbench.ShowOnlyOwnedParts=false
 assert(#V.build(cat, {}, ownedSources, {}, {}, {}, nearbyScan).bySlot.Scope.options == 2,
     "disabled option restores all compatible parts")

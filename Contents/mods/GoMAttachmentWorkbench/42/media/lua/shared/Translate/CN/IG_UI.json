@@ -74,5 +74,10 @@
     "IGUI_GMAW_TooltipHitChance": "命中率",
     "IGUI_GMAW_TooltipClipSize": "弹匣容量",
     "IGUI_GMAW_TooltipLowLight": "低光加成",
-    "IGUI_GMAW_Search": "搜索武器..."
+    "IGUI_GMAW_Search": "搜索武器...",
+    "IGUI_GMAW_ToolStatus": "工具状态",
+    "IGUI_GMAW_ToolScrewdriver": "螺丝刀",
+    "IGUI_GMAW_ToolWrench": "扳手",
+    "IGUI_GMAW_ToolReady": "可用",
+    "IGUI_GMAW_ToolMissing": "缺少"
 }

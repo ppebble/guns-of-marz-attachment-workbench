@@ -46,6 +46,11 @@ assert(w.optionsWidth <= formerRightWidth * 0.71 and w.middleWidth > w.optionsWi
 assert(w.diagram.height == 254 and w.slots.height == 3 * w.slots.itemheight,
     "weapon diagram grows until the complete slot list shows three rows")
 assert(#w.slots.items==2 and #w.mounts.items==1 and w.mounts.items[1].item.item==rail)
+local installedOption = {current=true, quantity=0, fullType="rail", item=rail}
+local installedTooltip
+w:addOption({items={}, addItem=function(_, _, _, tooltip) installedTooltip=tooltip end}, installedOption)
+assert(installedOption.subtitle == "Installed", "installed status must not imply zero installed parts")
+assert(string.find(installedTooltip, "Available  x0", 1, true), "tooltip keeps the separate spare-part quantity")
 w:selectSlot(w.view.bySlot.Scope)
 assert(w:diagramCards()[1].slot == "Scope", "priority slot appears in diagram")
 local quickX, quickY = w.diagram:cardRect(1)
@@ -80,7 +85,16 @@ w.parts:doDrawItem(0,w.parts.items[1]); w.parts:doDrawItem(66,w.parts.items[2]);
 local hasMissingToolBorder=false
 for _,draw in ipairs(w.draws) do if draw.border and draw.r>0.9 and draw.g<0.3 then hasMissingToolBorder=true end end
 assert(hasMissingToolBorder, "missing or broken wrench uses a red disabled border")
-for _,draw in ipairs(w.draws) do assert(draw.text ~= "ToolStatus" and draw.text ~= "ToolScrewdriver" and draw.text ~= "ToolWrench") end
+local toolLabels, toolIcons = {}, {}
+for _,draw in ipairs(w.draws) do
+    if draw.text then toolLabels[draw.text] = true end
+    if draw.texture then toolIcons[draw.texture] = draw end
+end
+assert(toolLabels.ToolStatus and toolLabels.ToolScrewdriver and toolLabels.ToolWrench
+    and toolLabels.ToolReady and toolLabels.ToolMissing, "tools have names and explicit availability")
+assert(toolIcons["screwdriver-icon"].height >= 40, "tool icon is enlarged")
+assert(w.toolY + w.toolBoxSize < w.cartLabelY and w.statusY < w.toolLabelY,
+    "tool cards fit between status and cart heading")
 local textures={}
 for _,list in ipairs({w.weapons,w.slots,w.mounts,w.parts,w.cart}) do
     for _,draw in ipairs(list.draws) do if draw.texture then textures[draw.texture]=draw end end
@@ -185,5 +199,19 @@ for _, row in ipairs(current.parts.items) do
     assert(row.item.dim, "refresh marks parts removed from nearby storage as unavailable")
 end
 current:close()
+local savedTextManager = getTextManager
+getTextManager = function()
+    local manager = savedTextManager()
+    manager.getFontHeight = function() return 22 end
+    return manager
+end
+W.open(player,gun)
+local large = GMAWWindows[0]
+assert(large.toolBoxSize >= 56 and large.parts.height > 0 and large.slots.height > 0,
+    "large-font tool cards retain positive list space on a smaller screen")
+assert(large.toolY + large.toolBoxSize < large.cartLabelY
+    and large.toolLabelY + 22 < large.toolY, "large-font tool labels do not overlap")
+large:close()
+getTextManager = savedTextManager
 getSpecificPlayer = oldSpecificPlayer
 M.supported,M.candidates,M.toolKey,S.scan=saved.supported,saved.candidates,saved.toolKey,saved.scan

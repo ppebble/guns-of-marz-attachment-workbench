@@ -38,6 +38,8 @@ if ($Legacy) {
 }
 $files += Join-Path $repo 'Contents/mods/GoMAttachmentWorkbench/42/media/lua/shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $repo 'tests/native-actions.test.lua'
+$files += Join-Path $repo 'Contents/mods/GoMAttachmentWorkbench/42/media/lua/shared/GMAW/Authority.lua'
+$files += Join-Path $repo 'tests/native-authority.test.lua'
 Push-Location $GamePath
 try {
     & (Join-Path $GamePath 'jre64/bin/java.exe') -cp "$(Join-Path $repo '.build');$(Join-Path $GamePath 'projectzomboid.jar')" LuaHarness @files
