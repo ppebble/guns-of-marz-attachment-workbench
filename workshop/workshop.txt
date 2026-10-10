@@ -52,5 +52,8 @@ description=[hr][/hr]
 description=
 description=[h2]More Project Zomboid Mods by ask13[/h2]
 description=Browse other focused Build 42 tools and compatibility mods in the [url=https://github.com/ppebble/project-zomboid-modding]Project Zomboid Mods & Tools catalog[/url].
+description=
+description=Workshop ID: 3798555914
+description=Mod ID: GoMAttachmentWorkbench
 tags=Build 42;Weapons
 visibility=public
