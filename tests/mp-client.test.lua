@@ -55,5 +55,20 @@ gmawServerCommand("GMAW","apply",player,pending)
 function isClient() return true end
 function isServer() return false end
 gmawTick();assert(A.poll(player)=="Success" and inv:getItemById(601)==part)
+-- A temporarily removed universal part returns as a NEW generic inventory item.
+-- Restoration must send that refund ID to the server, not the old attached ID.
+local refund=item("genericRefund", 699, "Suppressor")
+inv:AddItem(refund)
+function inv:getFirstTypeRecurse(ft)
+    for _,p in ipairs(self.values) do if p:getFullType()==ft then return p end end end
+local restore={kind="install",id=698,slot="Suppressor",fullType="testPart",generic=true,refundType="genericRefund"}
+local batch={player=player,weaponID=600,weapon=gun,operations={restore},index=1,
+    startedAssembly=true,handles={}}
+pending=nil
+A.advance(player,batch)
+action=table.remove(q,1);assert(action and action:isValid());action:perform()
+assert(pending and pending.partID==699 and restore.id==699, "restore resolves the new refund ID before sending")
+assert(not gun.parts.Suppressor and inv:getItemById(699)==refund, "restoration still leaves mutation to the server")
+inv:Remove(refund)
 M.supported,M.candidates,S.scan,M.toolGroups=saved.supported,saved.candidates,saved.scan,tools
 isClient,isServer=saved.client,saved.server

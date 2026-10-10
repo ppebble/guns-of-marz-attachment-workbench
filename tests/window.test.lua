@@ -59,7 +59,8 @@ assert(w.activeSlot == "Scope", "diagram card selects the same slot as the compl
 assert(w.slots.items[w.slots.selected].item.slot == "Scope", "diagram selection highlights the complete list")
 local fullWidth = w.diagram.width
 w.diagram.width = 300
-assert(#w:diagramCards() == 2, "narrow diagrams keep the remaining slots in the scrolling list")
+assert(#w:diagramCards() == 1 and w:diagramCards()[1].slot == "Scope",
+    "narrow diagrams exclude rails while keeping real attachment slots")
 w.diagram.width = fullWidth
 local originalView = w.view
 local many = {slots={},bySlot={}}
@@ -70,6 +71,15 @@ end
 w.view = many
 assert(#w:diagramCards() == 6 and #w.view.slots == #M.slots,
     "diagram shortcuts never truncate the full supported slot model")
+for _,card in ipairs(w:diagramCards()) do
+    assert(card.slot ~= "CanonMount" and not card.slot:match("^Rail"), "diagram cards only show actual attachments")
+end
+local railOnly={slots={},bySlot={}}
+for _,slot in ipairs({"RailUp","RailDown","RailLeft","RailRight","CanonMount","Sling"}) do
+    local card={slot=slot};railOnly.slots[#railOnly.slots+1]=card;railOnly.bySlot[slot]=card
+end
+w.view=railOnly
+assert(#w:diagramCards()==1 and w:diagramCards()[1].slot=="Sling", "fallback fills space with an attachment, never a rail or mount")
 w.view = originalView
 assert(#w.parts.items==2 and w.parts.items[1].item.item==scope and w.parts.items[2].item.dim)
 w:choosePart(w.parts.items[2].item)

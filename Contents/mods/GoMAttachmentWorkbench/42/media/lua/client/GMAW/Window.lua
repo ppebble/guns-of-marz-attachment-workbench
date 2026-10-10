@@ -186,9 +186,9 @@ local function drawSlot(list, y, row)
     return y + list.itemheight
 end
 
--- Six quick-access cards frame the selected gun. Every supported slot remains
--- in the scrolling list below, including rails and weapons with many slots.
-local diagramOrder = {"Scope", "Canon", "RailUp", "Underbarrel", "Stock", "Shellholder"}
+-- Quick-access cards show attachments around the gun. Prerequisite rails and
+-- mounts remain available in the mount panel and complete scrolling slot list.
+local diagramOrder = {"Scope", "Canon", "Stock", "Underbarrel", "LaserRifle", "LightRifle", "Shellholder"}
 function W:diagramCards()
     local cards, used = {}, {}
     if not self.view then return cards end
@@ -200,7 +200,9 @@ function W:diagramCards()
     end
     for _, card in ipairs(self.view.slots) do
         if #cards == limit then break end
-        if not used[card.slot] then cards[#cards + 1] = card end
+        if not used[card.slot] and card.slot ~= "CanonMount" and not card.slot:match("^Rail") then
+            cards[#cards + 1] = card
+        end
     end
     return cards
 end

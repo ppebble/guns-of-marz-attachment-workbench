@@ -168,6 +168,9 @@ function A.advance(player, batch)
             if not part or part:isBroken() or weapon:getWeaponPart(op.slot)
                 or Required.IsInstallationBlocked(weapon, op.fullType)
                 or Exclusives.IsBlockedByExclusive(weapon, op.fullType) then batch.error = "Stopped"; return end
+            -- Native removal refunds a new generic item, with a different ID.
+            -- Send the resolved inventory item, not the former installed part.
+            op.id = part:getID()
             if op.generic then
                 if not Universal.CanInstallOutcome(weapon, op.fullType, player) then batch.error = "Tools"; return end
                 enqueueAssembly(batch, op, function()
