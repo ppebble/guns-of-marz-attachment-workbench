@@ -12,6 +12,16 @@ The newest user instruction supersedes instant atomic batches. Apply is now **St
 6. Native cancellation/races stop remaining work. Completed transfers, removals and installs remain; no whole-cart rollback claim is made. Read-only `Batch.preflight` remains only for planning validation and detach ordering.
 7. Owned action instances observe perform/stop/forceCancel and suppress only multiplayer-local `complete`; no global native class overrides, no forced instant duration, no client item mutation, and no new dependencies. Active/stateful underbarrel removal remains conservatively excluded.
 
+## Weapon/part adapter boundary (2026-10-11)
+
+The workbench retains the same mod ID, sandbox defaults, and **SWMG dependency**. Existing GoM/Old GoM/vanilla and optional suppressor paths are intentionally unchanged. Generic third-party compatibility is **explicit opt-in**, not a wildcard.
+
+- `GMAW/Adapters.lua` provides `registerWeapon(id, spec)` and `registerPart(id, spec)`. Both are shared so server and client make the same admission decision. Registration requires an exact owner mod ID and enabled mod IDs; a weapon adapter also requires a `matches` function or a `mountOwners` whitelist, never blanket trust in a module prefix.
+- `Model.supported` uses its unchanged core GoM/vanilla gate, or a registered adapter. The built-in Emre adapter requires `GunsOfMarz` + `EmreFirearmsPack_B42` + `EmreFPGoMCompat` and excludes legacy `MarzGuns`. It admits only weapons whose full type is in a GoM-owned, supported slot's **actual runtime MountOn**, which the Emre bridge populates on OnGameBoot. This avoids hardcoding/expanding all 49 Emre weapons when only 23 have bridge registrations.
+- A weapon adapter **does not** admit a new attachment owner. An optional part adapter must register an exact item owner and native `compatible`, `canAttach`, `tools` and `action` callbacks. These are routed by `GMAW/Attachments.lua` through existing native queued actions. A `false` compatibility decision excludes the part.
+- `GMAW/Authority.lua` revalidates the adapter and candidate fullType for third-party weapons, in addition to its existing server-side item ID, slot, prerequisite, exclusion, tool and native completion checks. Legacy GoM server action authorization is preserved without new constraints.
+- This is a **foundation**, not automatic Brita support: a non-Gunworks part backend, different slot taxonomy, animations, models, and eventual removal of the current SWMG dependency would need explicit future adapters and SP/MP tests. Do not assume arbitrary Brita/GoM interoperation merely because the adapters interface exists.
+
 ## UI and compatibility
 
 - Three columns: native weapon icons; supported slot cards with actual installed icon and distinct queued preview; selected-slot options (missing compatible parts grey). Current instruction supersedes the old all-slots/X design.

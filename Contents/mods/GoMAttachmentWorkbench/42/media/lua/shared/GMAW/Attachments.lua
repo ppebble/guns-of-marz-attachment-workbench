@@ -1,6 +1,8 @@
 -- Optional, part-only integration. Never infer ownership from the Base module.
 local T = {}
+local Adapters = require "GMAW/Adapters"
 local registeredSimple
+
 local function simpleCompatibility()
     require "simple-suppressors/compatibility"
     local api = SimpleSuppressorsCompatibility
@@ -29,18 +31,25 @@ function T.owner(part)
     local id = part and part.getModID and part:getModID()
     if (id == "ImprovisedSilencers" or id == "SimpleSuppressors")
         and getActivatedMods():contains(id) then return id end
+    local adapter = Adapters.part(part)
+    return adapter and adapter.id
 end
 
 function T.compatible(part, weapon)
-    if T.owner(part) ~= "SimpleSuppressors" then return true end
-    -- MountOn is deliberately broad upstream; caliber/sandbox checks are not.
-    return simpleCompatibility().canAttach(nil, weapon, part) == true
+    if T.owner(part) == "SimpleSuppressors" then
+        -- MountOn is deliberately broad upstream; caliber/sandbox checks are not.
+        return simpleCompatibility().canAttach(nil, weapon, part) == true
+    end
+    local adapter = Adapters.part(part)
+    return not adapter or adapter.compatible(part, weapon) == true
 end
 
 function T.canAttach(part, player, weapon)
     if T.owner(part) == "SimpleSuppressors" then
         return simpleCompatibility().canAttachDynamic(player, weapon, part) == true
     end
+    local adapter = Adapters.part(part)
+    if adapter then return adapter.canAttach(part, player, weapon) == true end
     return part:canAttach(player, weapon)
 end
 
@@ -51,9 +60,13 @@ function T.tools(part, removing)
     elseif owner == "ImprovisedSilencers" then
         return part:getFullType() == "Base.PotatoSilencer" and {} or {{ItemTag.SCREWDRIVER}}
     end
+    local adapter = Adapters.part(part)
+    if adapter then return adapter.tools(part, removing) end
 end
 
 function T.action(player, weapon, part, removing)
+    local adapter = Adapters.part(part)
+    if adapter then return adapter.action(player, weapon, part, removing) end
     if T.owner(part) == "SimpleSuppressors" then
         require "simple-suppressors/suppressoractions"
         if removing then return ISRemoveSuppressor:new(player, weapon, part:getPartType()) end

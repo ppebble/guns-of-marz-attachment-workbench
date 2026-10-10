@@ -5,8 +5,18 @@ const root = path.resolve(__dirname, '..');
 const mod = path.join(root, 'Contents/mods/GoMAttachmentWorkbench/42');
 const read = p => fs.readFileSync(path.join(mod, p), 'utf8');
 assert.match(read('mod.info'), /^require=SWMG$/m);
-assert.match(read('mod.info'), /^loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors$/m);
+assert.match(read('mod.info'), /^loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors,EmreFirearmsPack_B42,EmreFPGoMCompat$/m);
+assert.doesNotMatch(read('mod.info'), /^require=.*(?:EmreFirearmsPack_B42|EmreFPGoMCompat)/m,
+  'Emre must never become a required dependency');
 assert.doesNotMatch(read('mod.info'), /^incompatible=.*MarzGuns/m);
+const adapters = read('media/lua/shared/GMAW/Adapters.lua');
+assert.match(adapters, /function A\.registerWeapon\(/, 'external weapon adapters can be registered');
+assert.match(adapters, /function A\.registerPart\(/, 'external part adapters must define native actions');
+assert.match(adapters, /owner = "EmreFirearmsPack_B42"/, 'Emre opt-in uses its exact owner');
+assert.match(adapters, /"EmreFPGoMCompat"/, 'Emre opt-in requires the compatibility bridge');
+assert.match(adapters, /hasRegisteredMount/, 'third-party weapons must have native registration');
+assert.match(read('media/lua/shared/GMAW/Authority.lua'), /M\.adapterFor\(weapon\).*M\.candidates\(weapon\)/,
+  'server blocks client-invented parts for adapter weapons');
 function translations(lang) {
   assert.ok(!fs.existsSync(path.join(mod,`media/lua/shared/Translate/${lang}/IGUI_${lang}.txt`)), 'Incorrect old translation filename must not ship');
   return JSON.parse(read(`media/lua/shared/Translate/${lang}/IG_UI.json`));
@@ -19,7 +29,9 @@ assert.match(cn.IGUI_GMAW_Title, /[\u4E00-\u9FFF]/, 'Simplified Chinese encoding
 const ui = read('media/lua/client/GMAW/Window.lua');
 for (const [,key] of ui.matchAll(/tr\("(\w+)"\)/g)) assert.ok(en[`IGUI_GMAW_${key}`], key);
 for (const key of ['Unsupported','Conflict','Dependency','Missing','Tools','Stale','Special','Success','ActionsQueued','Busy','Stopped']) assert.ok(en[`IGUI_GMAW_${key}`]);
-for (const [,slot] of read('media/lua/shared/GMAW/Model.lua').split('function M.enabled')[0].matchAll(/"(\w+)"/g)) {
+const slotDeclaration = read('media/lua/shared/GMAW/Model.lua').match(/M\.slots\s*=\s*\{([\s\S]*?)\}/)?.[1];
+assert.ok(slotDeclaration, 'Weapon slot declarations exist');
+for (const [,slot] of slotDeclaration.matchAll(/"(\w+)"/g)) {
   assert.ok(en[`IGUI_GMAW_Slot_${slot}`], `slot ${slot}`);
 }
 assert.doesNotMatch(ui, /:attachWeaponPart\(|:detachWeaponPart\(|sendRemoveItemFromContainer\(/, 'client is preview only');

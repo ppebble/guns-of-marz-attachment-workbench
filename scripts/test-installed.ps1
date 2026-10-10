@@ -23,7 +23,7 @@ if (-not $Legacy) {
     $files += Join-Path $framework 'media/lua/shared/GunworksUtils/GunworksAttachAndDetach.lua'
     $files += Join-Path $gom 'media/lua/shared/MarzWeapons/OnCreate/AttachAndDetach.lua'
 }
-foreach ($name in @('Attachments','Model','Planner')) { $files += Join-Path $repo "Contents/mods/GoMAttachmentWorkbench/42/media/lua/shared/GMAW/$name.lua" }
+foreach ($name in @('Adapters','Attachments','Model','Planner')) { $files += Join-Path $repo "Contents/mods/GoMAttachmentWorkbench/42/media/lua/shared/GMAW/$name.lua" }
 $files += Join-Path $repo 'evidence/installed-fixtures.test.lua'
 $files += Join-Path $repo 'tests/installed.test.lua'
 $files += Join-Path $repo 'tests/native-actions-bootstrap.test.lua'

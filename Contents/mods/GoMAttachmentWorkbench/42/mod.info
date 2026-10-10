@@ -3,5 +3,5 @@ id=GoMAttachmentWorkbench
 description=Nearby-storage attachment workbench for current or Old Version Guns of Marz and vanilla firearms. Enable exactly one GoM version plus Gunworks Framework. English and Korean.
 versionMin=42.20.4
 require=SWMG
-loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors
+loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors,EmreFirearmsPack_B42,EmreFPGoMCompat
 author=ask13

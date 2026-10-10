@@ -3,6 +3,7 @@ local Permanent = require "WeaponSystems/Utils/PreventRemovals"
 local Universal = require "WeaponSystems/Utils/UniversalAttachment"
 local Exclusives = require "WeaponSystems/Utils/UpgradeExclusives"
 local Attachments = require "GMAW/Attachments"
+local Adapters = require "GMAW/Adapters"
 local M = {}
 
 -- Player-facing order: attachments first; prerequisite rails/mounts are last.
@@ -10,9 +11,13 @@ M.slots = { "Scope", "LaserRifle", "LightRifle", "Foregrip", "Bipod", "Underbarr
     "Canon", "Suppressor", "Barrel", "Shellholder", "Stock", "Sling", "RecoilPad", "RailUp",
     "RailDown", "RailLeft", "RailRight", "CanonMount" }
 
-function M.enabled()
+local function gomEnabled()
     local mods = getActivatedMods()
     return mods:contains("GunsOfMarz") ~= mods:contains("MarzGuns")
+end
+
+function M.enabled()
+    return gomEnabled() or Adapters.anyWeaponEnabled()
 end
 
 function M.owned(item)
@@ -30,10 +35,24 @@ local simpleVanilla = {
     ["Base.AssaultRifle2"]=true, ["Base.HuntingRifle"]=true, ["Base.MSR7T_Rifle"]=true,
 }
 
+-- Keep existing GoM / vanilla admission separate from opt-in adapters.
+function M.coreSupported(item)
+    return gomEnabled() and (M.owned(item) or (item:getModID() == "SimpleSuppressors"
+        and getActivatedMods():contains("SimpleSuppressors") and simpleVanilla[item:getFullType()] == true))
+end
+
+local supportedSlots = {}
+for _, slot in ipairs(M.slots) do supportedSlots[slot] = true end
+
+function M.adapterFor(item)
+    if not item or not instanceof(item, "HandWeapon") or not item:isRanged() then return nil end
+    if not Adapters.hasActiveWeaponOwner(item) then return nil end
+    return Adapters.weapon(item, M.catalog(), supportedSlots)
+end
+
 function M.supported(item)
-    if not M.enabled() or not item or not instanceof(item, "HandWeapon") or not item:isRanged() then return false end
-    return M.owned(item) or (item:getModID() == "SimpleSuppressors"
-        and getActivatedMods():contains("SimpleSuppressors") and simpleVanilla[item:getFullType()] == true)
+    if not item or not instanceof(item, "HandWeapon") or not item:isRanged() then return false end
+    return M.coreSupported(item) or M.adapterFor(item) ~= nil
 end
 
 function M.keys(t)

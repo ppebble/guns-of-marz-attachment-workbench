@@ -1,5 +1,14 @@
 param([string]$ModsPath = (Join-Path $env:USERPROFILE 'Zomboid/mods'))
 $ErrorActionPreference = 'Stop'
+# A running game/server can have already loaded Lua from this shared local mod.
+# Refuse an incomplete hot-swap; do not interrupt the user's current session.
+$activePZ = @(Get-CimInstance Win32_Process | Where-Object {
+    $_.Name -in @('ProjectZomboid64.exe', 'ProjectZomboid.exe') -or
+    ($_.Name -in @('java.exe', 'javaw.exe') -and $_.CommandLine -match 'zombie[.]network[.]GameServer')
+})
+if ($activePZ.Count -gt 0) {
+    throw 'Close Project Zomboid and all dedicated servers before installing the local workbench.'
+}
 $repo = Split-Path $PSScriptRoot -Parent
 $source = Join-Path $repo 'Contents/mods/GoMAttachmentWorkbench'
 $root = [IO.Path]::GetFullPath($ModsPath)

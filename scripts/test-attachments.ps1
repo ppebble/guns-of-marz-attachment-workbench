@@ -28,12 +28,13 @@ try {
     $files += "$isil/ISIL_MarzGunsCompatibility.lua"
     $files += "$simple/simple-suppressors/compatibility.lua"
     $files += "$simple/simple-suppressors/weaponsystemscompat.lua"
-    foreach ($name in @('Attachments','Model','Planner','Sources','Batch','Presentation','Authority')) { $files += "$lua/GMAW/$name.lua" }
+    foreach ($name in @('Adapters','Attachments','Model','Planner','Sources','Batch','Presentation','Authority')) { $files += "$lua/GMAW/$name.lua" }
     $files += "$repo/tests/native-actions-bootstrap.test.lua"
     $files += "$GamePath/media/lua/shared/TimedActions/ISUpgradeWeapon.lua"
     $files += "$GamePath/media/lua/shared/TimedActions/ISRemoveWeaponUpgrade.lua"
     $files += "$gw/WeaponSystems/Hooks/WeaponUpgradeHooks.lua"
     if ($Legacy) { $files += "$gom/media/lua/shared/MarzWeapons/Hooks/UpgradeRemoveUpgradeReequipt.lua" }
+    else { $files += "$gom/media/lua/shared/MarzWeapons/Hooks/CanShoot.lua" }
     $files += "$isil/ISIL_SilencerStats.lua"
     $files += "$lua/GMAW/NativeCompletion.lua"
     $files += "$simple/simple-suppressors/suppressoractions.lua"

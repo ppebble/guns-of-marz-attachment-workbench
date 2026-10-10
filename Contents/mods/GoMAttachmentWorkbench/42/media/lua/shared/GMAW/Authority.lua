@@ -42,6 +42,11 @@ function A.apply(player, args)
         or installed or Required.IsInstallationBlocked(weapon, args.fullType)
         or Exclusives.IsBlockedByExclusive(weapon, args.fullType) then return false, "Install" end
 
+    -- Opt-in weapon adapters must use a catalog-listed native slot and part;
+    -- never let a forged client request bypass the selected compatibility bridge.
+    if M.adapterFor(weapon) and not M.candidates(weapon)[args.fullType] then
+        return false, "Part"
+    end
     local consumed = itemByID(inventory, args.partID)
     if not consumed or consumed:isBroken() then return false, "Part" end
     if T.owner(consumed) then

@@ -3,11 +3,15 @@
 Project Zomboid **B42.20.4**용 독립형 총기 개조 작업대. Mod ID: `GoMAttachmentWorkbench`.
 
 **상태: 0.1 테스트 빌드. 소스/설치본 검증과 실제 게임 검증은 별개입니다.**
-필수 모드: `SWMG` (Gunworks Framework)와 **`GunsOfMarz` 또는 `MarzGuns` (Old Version) 중 하나**.
-같은 Workshop 항목에 포함된 Old Version도 지원 대상으로 추가했습니다. 두 버전 동시 활성화 또는 GoM 미활성화 시 작업대는 비활성화됩니다. 다른 총기 모드는 제외하며, 바닐라 총기도 GoM 활성화 시에만 지원합니다. 구버전 지원은 게임 B42.20.4 이상 기준이며 B41 지원이 아닙니다.
+현재 필수 의존성: `SWMG` (Gunworks Framework). 기본 지원 경로는 **`GunsOfMarz` 또는 `MarzGuns` (Old Version) 중 하나**입니다.
+GoM 기본 경로는 기존과 동일합니다. 두 GoM 버전을 동시에 켜면 GoM/바닐라 총기는 지원되지 않으며, 다른 총기 모드는 **명시적으로 등록된 호환 어댑터**가 있어야만 지원됩니다. 현재 기본 탑재된 확장은 Emre-GoM 하나뿐입니다. 바닐라 총기도 GoM 활성화 시에만 지원하며, 구버전 지원은 B42.20.4 이상 기준으로 B41 지원이 아닙니다.
 구형은 드라이버, 신형은 GoM의 슬롯별 도구 규칙을 사용합니다. 실제 구형 게임/멀티플레이 동작은 아직 미검증입니다. [호환성 범위](docs/compatibility.md)
 
-선택 호환 모드: **Improvised Silencers (3779164273)** 및 **Simple Suppressors (3782565181)**. 설치·활성화한 모드의 호환 부품만 작업대에 표시합니다. Improvised Silencers는 총구 슬롯(일반 부품은 드라이버, 감자는 맨손), Simple Suppressors는 소음기 슬롯(장착은 맨손, 제거는 드라이버)을 사용합니다. Simple Suppressors의 구경·샌드박스 제한을 유지하며 두 모드의 원래 장착/제거 완료 처리를 사용합니다. 다른 모드의 총기는 허용하지 않습니다. 실제 화면·소리·내구도·멀티플레이 효과는 인게임 확인이 필요합니다.
+선택 호환 모드: **Improvised Silencers (3779164273)** 및 **Simple Suppressors (3782565181)**. 설치·활성화한 모드의 호환 부품만 작업대에 표시합니다. Improvised Silencers는 총구 슬롯(일반 부품은 드라이버, 감자는 맨손), Simple Suppressors는 소음기 슬롯(장착은 맨손, 제거는 드라이버)을 사용합니다. Simple Suppressors의 구경·샌드박스 제한을 유지하며 두 모드의 원래 장착/제거 완료 처리를 사용합니다. 그 밖의 임의 총기 모드는 허용하지 않습니다. 실제 화면·소리·내구도·멀티플레이 효과는 인게임 확인이 필요합니다.
+
+**Emre 총기 선택 호환 (개발 중):** 현행 `GunsOfMarz`, `EmreFirearmsPack_B42` ([Emre Firearms Pack](https://steamcommunity.com/sharedfiles/filedetails/?id=3799972370)), `EmreFPGoMCompat` ([Emre Firearms Pack x Guns of Marz](https://steamcommunity.com/sharedfiles/filedetails/?id=3805214250))가 **모두 활성화된 경우에만**, 호환 패치가 GoM 부착물의 `MountOn`에 실제 등록한 Emre 총기를 작업대에서 허용합니다. 원본 팩은 49종이고 현재 패치가 다루는 총기는 23종이며, 장착 가능한 부착물이 없는 총기는 작업대에 표시하지 않습니다. 세 모드 중 하나라도 빠지면 기존 GoM/바닐라 동작만 유지합니다. Emre는 **새 필수 의존성이 아니며** 구버전 `MarzGuns`에는 적용되지 않습니다. 부착물의 장착 가능 여부와 선행 레일/공구 규칙은 GoM/Gunworks의 원래 처리를 사용합니다. 원본 호환 패치 설명에 따르면 Emre 총기의 부착물 3D 외형은 표시되지 않습니다. 실제 Emre 설치본과 서버 로그의 초기화는 확인했으며 작업대의 인게임 사용은 아직 재검증 전입니다.
+
+**다른 총기 모드 확장:** 공유 `GMAW/Adapters.lua`에 총기 어댑터(소유자·활성 모드·호환 부착물)를 등록할 수 있습니다. 새로운 부착물 소유자를 추가하려면 유효성·공구·네이티브 완료 처리를 갖춘 별도 부품 어댑터가 필요합니다. 단순 설치만으로 Brita 등 모든 외부 총기를 자동 허용하지 않습니다. 현재 SWMG 의존성을 제거하거나 새 모드의 비표준 슬롯·애니메이션을 지원하는 단계는 아닙니다.
 
 ## 사용
 
