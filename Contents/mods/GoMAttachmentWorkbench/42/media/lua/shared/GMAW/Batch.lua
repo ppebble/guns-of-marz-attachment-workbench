@@ -1,7 +1,6 @@
 local M = require "GMAW/Model"
-local Required = require "WeaponSystems/Utils/RequiredAttachment"
-local Underbarrel = require "WeaponSystems/Utils/Underbarrel"
-local Railing = require "WeaponSystems/Utils/Railing"
+local Framework = require "GMAW/Framework"
+local Required, Underbarrel, Railing = Framework.Required, Framework.Underbarrel, Framework.Railing
 local T = require "GMAW/Attachments"
 local B = {}
 local function depends(child, parent)
@@ -13,6 +12,7 @@ local function depends(child, parent)
 end
 
 function B.preflight(player, weapon, catalog, plan, removeSlot, toolsWillTransfer)
+    if not M.actionSafe(weapon) then return nil, "NativeConflict" end
     if Underbarrel.IsWeaponInUnderbarrelMode(weapon) then return nil, "Special" end
     local installed, detach, replacing = M.installed(weapon), {}, {}
     if removeSlot then
@@ -27,7 +27,7 @@ function B.preflight(player, weapon, catalog, plan, removeSlot, toolsWillTransfe
         -- Tool transfers are queued before this action. Preserve native
         -- canAttach validation at execution time once they are in inventory.
         if not part or not T.compatible(part, weapon)
-            or (not toolsWillTransfer and not T.canAttach(part, player, weapon)) then return nil, "Tools" end
+            or (not toolsWillTransfer and not T.canPlanAttach(part, player, weapon)) then return nil, "Tools" end
         step.part = part
     end
     -- Temporarily remove installed descendants before replacing a mount.
@@ -57,7 +57,7 @@ function B.preflight(player, weapon, catalog, plan, removeSlot, toolsWillTransfe
     end
     for _, slot in ipairs(M.keys(detach)) do
         local part = detach[slot]
-        if M.permanent(part) or not part:canDetach(player, weapon) then return nil, "Tools" end
+        if M.permanent(part) or not T.canDetach(part, player, weapon) then return nil, "Tools" end
         -- Stateful underbarrels can hold ammunition. Never bypass their refund workflow.
         if Underbarrel.UnderbarrelAttachments[part:getFullType()] then return nil, "Special" end
         if not removeSlot and not replacing[slot] and not toolsWillTransfer

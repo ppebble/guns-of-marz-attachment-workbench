@@ -1,4 +1,5 @@
 local V = require "GMAW/Presentation"
+local weapon = item("MarzGuns.Test", 9000)
 local function part(name, id, slot)
     local p = item(name, id, slot)
     p.getName = function() return name end
@@ -9,26 +10,26 @@ local cat = { rail = {slot="RailUp",part=rail,all={},any={}},
     scope = {slot="Scope",part=scope,all={},any={rail=true}},
     absent = {slot="Scope",part=absent,all={},any={rail=true}} }
 local available = { rail={{item=rail,key="player"}},scope={{item=scope,key="floor"}},absent={} }
-local view = V.build(cat, {}, available, {}, {}, {})
+local view = V.build(cat, {}, available, {}, {}, weapon)
 assert(#view.slots == 2 and view.slots[1].slot == "Scope" and view.slots[2].slot == "RailUp",
     "attachment cards precede prerequisite rails")
 assert(view.slots[1].installed == nil, "empty cards must not show a fake installed part")
 assert(view.bySlot.Scope.options[1].fullType == "scope", "available choices precede missing choices")
 assert(not view.bySlot.Scope.options[1].dim and view.bySlot.Scope.options[1].quantity == 1)
 assert(view.bySlot.Scope.options[2].dim and view.bySlot.Scope.options[2].quantity == 0)
-view = V.build(cat, {}, available, {Scope="scope"}, {}, {})
+view = V.build(cat, {}, available, {Scope="scope"}, {}, weapon)
 assert(#view.plan == 2 and view.bySlot.RailUp.queued == rail and view.bySlot.RailUp.automatic)
 assert(view.bySlot.Scope.queued == scope and not view.bySlot.Scope.automatic)
 assert(view.bySlot.Scope.installed == nil, "queued is not installed")
-view = V.build(cat, {Scope=absent}, available, {Scope="scope"}, {}, {})
+view = V.build(cat, {Scope=absent}, available, {Scope="scope"}, {}, weapon)
 assert(view.bySlot.Scope.installed == absent and view.bySlot.Scope.queued == scope)
 local current
 for _, option in ipairs(view.bySlot.Scope.options) do if option.current then current=option end end
 assert(current and current.item == absent and not current.dim, "installed choice can clear replacement even without spare")
 scope.canAttach = function() return false end
-view = V.build(cat, {}, available, {}, {}, {})
+view = V.build(cat, {}, available, {}, {}, weapon)
 assert(view.bySlot.Scope.options[1].dim and view.bySlot.Scope.options[1].reason == "Tools")
-assert(#V.build({}, {}, {}, {}, {}, {}).slots == 0)
+assert(#V.build({}, {}, {}, {}, {}, weapon).slots == 0)
 
 -- A nearby valid tool makes an otherwise tool-gated option selectable; the
 -- native transfer scheduler moves it before the final canAttach validation.
@@ -37,7 +38,7 @@ local screwdriver=item("screwdriver", 77, "Tool")
 screwdriver.hasTag=function(_, tag) return tag==ItemTag.SCREWDRIVER end
 scope.canAttach=function() return false end
 local nearbyScan={entries={{item=screwdriver,key="2:object",kind="Furniture"}}}
-view=V.build(cat, {}, available, {}, {}, {}, nearbyScan)
+view=V.build(cat, {}, available, {}, {}, weapon, nearbyScan)
 assert(not view.bySlot.Scope.options[1].dim and not view.bySlot.Scope.options[1].reason,
     "nearby required tool keeps a compatible option selectable")
 
@@ -46,27 +47,61 @@ local savedSandbox = SandboxVars
 SandboxVars = {GoMAttachmentWorkbench={ShowOnlyOwnedParts=true}}
 local ownedSources = {rail={{item=rail,kind="Player",key="0:player/bag:10"}},
     scope={{item=scope,kind="Furniture",key="2:object"}},absent={}}
-view=V.build(cat, {}, ownedSources, {}, {}, {}, nearbyScan)
-assert(not view.bySlot.Scope and #view.bySlot.RailUp.options == 1,
-    "carried bag part is shown; nearby-only and missing parts are hidden")
-view=V.build(cat, {Scope=absent}, ownedSources, {}, {}, {}, nearbyScan)
+view=V.build(cat, {}, ownedSources, {}, {}, weapon, nearbyScan)
+assert(view.bySlot.Scope and #view.bySlot.Scope.options == 0 and #view.bySlot.RailUp.options == 1,
+    "owned-only filters parts, but every compatible attachment position remains visible")
+view=V.build(cat, {Scope=absent}, ownedSources, {}, {}, weapon, nearbyScan)
 assert(#view.bySlot.Scope.options == 1 and view.bySlot.Scope.options[1].current,
     "installed part remains visible without a carried spare")
-view=V.build(cat, {}, ownedSources, {Scope="scope"}, {}, {}, nearbyScan)
+view=V.build(cat, {}, ownedSources, {Scope="scope"}, {}, weapon, nearbyScan)
 assert(#view.bySlot.Scope.options == 1 and view.bySlot.Scope.options[1].queued,
     "queued nearby part remains visible and can be cleared")
 local genericCat={rail={slot="RailUp",part=rail,all={},any={},consume="genericRail"}}
 local genericAvailable=require("GMAW/Model").availability(genericCat,
     {byType={genericRail={{item=item("genericRail",80),kind="Player",key="0:player"}}}})
-assert(V.build(genericCat, {}, genericAvailable, {}, {}, {}, nearbyScan).bySlot.RailUp,
+assert(V.build(genericCat, {}, genericAvailable, {}, {}, weapon, nearbyScan).bySlot.RailUp,
     "generic carried rail exposes its directional outcome")
 local exactAvailable=require("GMAW/Model").availability(genericCat,
     {byType={rail={{item=rail,kind="Player",key="0:player/bag:10"}}}})
-local exactView=V.build(genericCat, {}, exactAvailable, {}, {}, {}, nearbyScan)
+local exactView=V.build(genericCat, {}, exactAvailable, {}, {}, weapon, nearbyScan)
 assert(exactView.bySlot.RailUp and exactView.bySlot.RailUp.options[1].quantity == 1
     and not exactView.bySlot.RailUp.options[1].dim,
     "carried directional rail is visible and selectable with owned-only enabled")
 SandboxVars.GoMAttachmentWorkbench.ShowOnlyOwnedParts=false
-assert(#V.build(cat, {}, ownedSources, {}, {}, {}, nearbyScan).bySlot.Scope.options == 2,
+assert(#V.build(cat, {}, ownedSources, {}, {}, weapon, nearbyScan).bySlot.Scope.options == 2,
     "disabled option restores all compatible parts")
 SandboxVars = savedSandbox
+
+-- Missing/dependency-rejected previews already have a definitive reason;
+-- probing native attachment callbacks cannot change their disabled status.
+local T = require "GMAW/Attachments"
+local P = require "GMAW/Planner"
+local originalCanPlan, originalSolve = T.canPlanAttach, P.solve
+local nativeCalls, solveCalls = 0, 0
+T.canPlanAttach = function(...)
+    nativeCalls = nativeCalls + 1
+    return originalCanPlan(...)
+end
+P.solve = function(...)
+    solveCalls = solveCalls + 1
+    return originalSolve(...)
+end
+scope.canAttach = function() return true end
+view = V.build(cat, {}, available, {Scope="scope"}, {}, weapon)
+assert(view.bySlot.Scope.options[2].reason == "Missing"
+    and view.bySlot.Scope.options[2].dim, "missing reason outranks native tool checks")
+assert(nativeCalls == 2, "only solvable rail and scope previews need native checks")
+assert(solveCalls == 3, "selected scope preview reuses the already solved cart")
+T.canPlanAttach, P.solve = originalCanPlan, originalSolve
+
+-- Rebuild results must observe live tool and stock changes; optimization is
+-- confined to this build and cannot retain a previously usable option.
+scope.canAttach = function() return false end
+view = V.build(cat, {}, available, {Scope="scope"}, {}, weapon)
+assert(view.bySlot.Scope.options[1].dim and view.bySlot.Scope.options[1].reason == "Tools")
+scope.canAttach = function() return true end
+view = V.build(cat, {}, {rail=available.rail, scope={}, absent={}}, {Scope="scope"}, {}, weapon)
+assert(not view.plan and view.reason == "Missing", "consumed source invalidates the rebuilt cart")
+for _, option in ipairs(view.bySlot.Scope.options) do
+    assert(option.dim and option.reason == "Missing", "consumed source invalidates option preview")
+end

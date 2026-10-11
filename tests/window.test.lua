@@ -1,6 +1,6 @@
 local W = require "GMAW/Window"
 local M, S = require "GMAW/Model", require "GMAW/Sources"
-local saved = {supported=M.supported,candidates=M.candidates,scan=S.scan,toolKey=M.toolKey}
+local saved = {supported=M.supported,canOpen=M.canOpen,candidates=M.candidates,scan=S.scan,toolKey=M.toolKey}
 local gun=item("gun",900); gun.getName=function() return "Gun" end; gun.getTex=function() return "gun-icon" end
 gun.getAllWeaponParts=function() return javaList({}) end
 local function part(name,id,slot)
@@ -9,6 +9,7 @@ end
 local rail,scope,missing=part("rail",1,"RailUp"),part("scope",2,"Scope"),part("missing",3,"Scope")
 scope.getPartType=function() return "Scope" end
 scope.getFullType=function() return "MarzGuns.OKP3_Sight" end
+scope.getModID=function() return "GunsOfMarz" end
 scope.getDamage=function() return 0.5 end
 scope.getMaxRange=function() return 4 end
 scope.getMountOn=function() return javaList({"MarzGuns.M16A1", "MarzGuns.M16A2"}) end
@@ -23,7 +24,7 @@ brokenWrench.hasTag=function(_,tag) return tag==ItemTag.WRENCH end
 -- drives both display and queued transfer.
 local scan={entries={{item=gun,kind="Player",key="player"},{item=screwdriver,kind="Furniture",key="nearby"},{item=brokenWrench,kind="Floor",key="nearby"}},
     byType={rail={{item=rail,key="player",kind="Player"}},scope={{item=scope,key="floor",kind="Floor"}}}}
-M.supported=function() return true end; M.candidates=function() return catalog end
+M.supported=function() return true end; M.canOpen=function() return true end; M.candidates=function() return catalog end
 M.toolKey=function() return "Tools" end; S.scan=function() return scan end
 local player={getPlayerNum=function() return 0 end,getInventory=function() return inventory({}) end}
 local originalGetCore=getCore
@@ -43,7 +44,7 @@ assert(w.mounts.width == w.optionsWidth and w.parts.width == w.optionsWidth
 local formerRightWidth = w.width - (20 + w.leftWidth + math.floor((w.width - 40) * 0.39) + 10) - 10
 assert(w.optionsWidth <= formerRightWidth * 0.71 and w.middleWidth > w.optionsWidth,
     "right column shrinks by about 30 percent in favor of the weapon diagram")
-assert(w.diagram.height == 254 and w.slots.height == 3 * w.slots.itemheight,
+assert(w.diagram.height > 300 and w.slots.height >= w.slots.itemheight,
     "weapon diagram grows until the complete slot list shows three rows")
 assert(#w.slots.items==2 and #w.mounts.items==1 and w.mounts.items[1].item.item==rail)
 local installedOption = {current=true, quantity=0, fullType="rail", item=rail}
@@ -59,8 +60,7 @@ assert(w.activeSlot == "Scope", "diagram card selects the same slot as the compl
 assert(w.slots.items[w.slots.selected].item.slot == "Scope", "diagram selection highlights the complete list")
 local fullWidth = w.diagram.width
 w.diagram.width = 300
-assert(#w:diagramCards() == 1 and w:diagramCards()[1].slot == "Scope",
-    "narrow diagrams exclude rails while keeping real attachment slots")
+assert(#w:diagramCards() == 1, "prerequisite rails merge into attachment nodes")
 w.diagram.width = fullWidth
 local originalView = w.view
 local many = {slots={},bySlot={}}
@@ -69,18 +69,119 @@ for _,slot in ipairs(M.slots) do
     many.slots[#many.slots + 1] = card; many.bySlot[slot] = card
 end
 w.view = many
-assert(#w:diagramCards() == 6 and #w.view.slots == #M.slots,
-    "diagram shortcuts never truncate the full supported slot model")
-for _,card in ipairs(w:diagramCards()) do
-    assert(card.slot ~= "CanonMount" and not card.slot:match("^Rail"), "diagram cards only show actual attachments")
+assert(#w:diagramCards() == #M.slots - 6, "only six prerequisite slots merge into attachment nodes")
+local function checkDiagram(window)
+    local d, cards = window.diagram, window:diagramCards()
+    local originalSelect = window.selectSlot
+    local clicked = {}
+    window.selectSlot = function(_, card) clicked[card.slot] = true end
+    local layout = d:cardLayout()
+    assert(layout.gun.width >= d.width * 0.60 and layout.gun.height >= 56,
+        "firearm remains a large central image")
+    local bounds = {}
+    for index, card in ipairs(cards) do
+        local x,y,width,height = d:cardRect(index, layout)
+        assert(x, "every supported attachment visible immediately: "..card.slot)
+        if x then
+            assert(x >= 0 and y >= 0 and x + width <= d.width and y + height <= d.height)
+            assert(height >= layout.fontHeight + 6)
+            assert(x+width<=layout.gun.x or x>=layout.gun.x+layout.gun.width
+                or y + height <= layout.gun.y or y >= layout.gun.y + layout.gun.height,
+                "cards never cover the central firearm")
+            for _,other in ipairs(bounds) do
+                assert(x + width <= other.x or other.x + other.width <= x
+                    or y + height <= other.y or other.y + other.height <= y,
+                    "spatial slot hit targets never overlap")
+            end
+            bounds[#bounds+1] = {x=x,y=y,width=width,height=height,elbowY=layout.nodes[index].elbowY}
+            assert(d:onMouseDown(x + width/2, y + height/2))
+            assert(clicked[card.slot], "click selects exact provider slot")
+            local n = layout.nodes[index]
+            assert(n.side or n.top and n.elbowY < layout.gun.y
+                or not n.top and n.elbowY > layout.gun.y + layout.gun.height,
+                "horizontal connector stays outside firearm")
+        end
+    end
+    window.selectSlot = originalSelect
+    return layout
 end
+local stable=checkDiagram(w)
+w.activeSlot="Clip"
+assert(w.diagram:cardLayout()==stable, "selection never recomputes spatial positions")
+w.diagram.width=300
+checkDiagram(w)
+w.diagram.width=fullWidth
+local previousActive = w.activeSlot
+w.activeSlot = many.slots[#many.slots].slot
+w.diagram:prerender()
+assert(w.diagram:cardRect(#w:diagramCards()), "last actual attachment is present without promotion")
+w.activeSlot = previousActive
+local spatial={slots={},bySlot={}}
+for _,slot in ipairs({"Scope","Stock","RailUp","Canon","LaserRifle","Foregrip","LightRifle","Bipod"}) do
+    local card={slot=slot}; spatial.slots[#spatial.slots+1]=card; spatial.bySlot[slot]=card
+end
+w.view=spatial
+local geometry=checkDiagram(w)
+local emitted={}
+for index,card in ipairs(w:diagramCards()) do
+    local n=assert(geometry.nodes[index], "all eight main roles visible: "..card.slot)
+    if card.slot=="LightRifle" or card.slot=="Foregrip" or card.slot=="Bipod" then assert(not n.top) end
+    emitted[#emitted+1]=string.format('{"slot":"%s","x":%d,"y":%d,"width":%d,"height":%d,"anchorX":%d,"anchorY":%d,"elbowY":%d,"top":%s}',
+        card.slot,n.x,n.y,n.width,n.height,n.anchorX,n.anchorY,n.elbowY or n.anchorY,tostring(n.top==true))
+end
+local rifle={getModID=function() return "GaelGunStore_B42" end,isTwoHandWeapon=function() return true end}
+local square={getWidth=function() return 32 end,getHeight=function() return 32 end}
+local quad=assert(w.diagram:weaponQuad(rifle,square,geometry))
+assert(quad[2].x>quad[4].x and quad[2].y==quad[4].y,
+    "known diagonal rifle axis becomes horizontal without stretching")
+assert(not w.diagram:weaponQuad(gun,square,geometry), "unknown artwork keeps original aspect")
+local quadText={}
+for _,point in ipairs(quad) do quadText[#quadText+1]=string.format('{"x":%.1f,"y":%.1f}',point.x,point.y) end
+local g=geometry.gun
+GMAWTestGeometryJSON=string.format('{"width":%d,"height":%d,"gun":{"x":%d,"y":%d,"width":%d,"height":%d},"nodes":[%s],"textureQuad":[%s]}',
+    w.diagram.width,w.diagram.height,g.x,g.y,g.width,g.height,table.concat(emitted,','),table.concat(quadText,','))
+local svd={slots={},bySlot={}}
+for _,slot in ipairs({"Barrel_Shroud","Canon","Clip","Grip","Handguard","L_Scope","Laser","Light","Misc","Mount","Scope","Sling","Stock"}) do
+    local card={slot=slot};svd.slots[#svd.slots+1]=card;svd.bySlot[slot]=card
+end
+w.view=svd
+assert(#w:diagramCards()==12, "all twelve actual SVD slots remain; Mount merges into Scope")
+local svdLayout=checkDiagram(w)
+local svdNodes={}
+for index,card in ipairs(w:diagramCards()) do
+    local n=svdLayout.nodes[index]
+    local cx=math.floor(n.x+n.width/2)
+    local points=n.side and {{n.edgeX,n.edgeY},{n.elbowX,n.edgeY},{n.elbowX,n.anchorY},{n.anchorX,n.anchorY}}
+        or {{cx,n.top and n.y+n.height or n.y},{cx,n.elbowY},{n.anchorX,n.elbowY},{n.anchorX,n.anchorY}}
+    local pointText={}
+    for _,point in ipairs(points) do pointText[#pointText+1]=string.format('[%d,%d]',point[1],point[2]) end
+    svdNodes[#svdNodes+1]=string.format('{"slot":"%s","x":%d,"y":%d,"width":%d,"height":%d,"anchorX":%d,"anchorY":%d,"top":%s,"points":[%s]}',
+        card.slot,n.x,n.y,n.width,n.height,n.anchorX,n.anchorY,tostring(n.top==true),table.concat(pointText,','))
+end
+local svdGun=svdLayout.gun
+local svdQuad=w.diagram:weaponQuad(rifle,square,svdLayout)
+local svdQuadText={}
+for _,point in ipairs(svdQuad) do svdQuadText[#svdQuadText+1]=string.format('{"x":%.1f,"y":%.1f}',point.x,point.y) end
+GMAWTestGeometryJSON=string.format('{"width":%d,"height":%d,"gun":{"x":%d,"y":%d,"width":%d,"height":%d},"nodes":[%s],"textureQuad":[%s]}',
+    w.diagram.width,w.diagram.height,svdGun.x,svdGun.y,svdGun.width,svdGun.height,table.concat(svdNodes,','),table.concat(svdQuadText,','))
+local sides=0
+for _,node in pairs(svdLayout.nodes) do if node.side then sides=sides+1 end end
+assert(sides>=3, "muzzle, shroud and sling occupy side spaces beside the weapon")
+for _,card in ipairs(svd.slots) do
+    w.activeSlot=card.slot
+    assert(w.diagram:cardLayout()==svdLayout,"SVD selection never changes geometry: "..card.slot)
+end
+w.activeSlot="Mount"
+assert(w:diagramActiveSlot()=="Scope", "mount selection highlights existing scope group")
+w.activeSlot="RailUp"
+assert(w:diagramActiveSlot()=="Scope", "upper rail selection highlights existing scope group")
 local railOnly={slots={},bySlot={}}
 for _,slot in ipairs({"RailUp","RailDown","RailLeft","RailRight","CanonMount","Sling"}) do
     local card={slot=slot};railOnly.slots[#railOnly.slots+1]=card;railOnly.bySlot[slot]=card
 end
 w.view=railOnly
-assert(#w:diagramCards()==1 and w:diagramCards()[1].slot=="Sling", "fallback fills space with an attachment, never a rail or mount")
-w.view = originalView
+assert(#w:diagramCards()==1 and w:diagramCards()[1].slot=="Sling", "only functional attachments remain in central diagram")
+w.view = originalView; w.activeSlot="Scope"
 assert(#w.parts.items==2 and w.parts.items[1].item.item==scope and w.parts.items[2].item.dim)
 w:choosePart(w.parts.items[2].item)
 assert(#w.plan==0, "missing choice must not be queued")
@@ -221,7 +322,20 @@ assert(large.toolBoxSize >= 56 and large.parts.height > 0 and large.slots.height
     "large-font tool cards retain positive list space on a smaller screen")
 assert(large.toolY + large.toolBoxSize < large.cartLabelY
     and large.toolLabelY + 22 < large.toolY, "large-font tool labels do not overlap")
+large.view=many
+checkDiagram(large)
+for _,slot in ipairs({"Scope","LightRifle"}) do
+    large.activeSlot=slot
+    local chosen
+    for index,card in ipairs(large:diagramCards()) do if card.slot==slot then chosen=index end end
+    assert(large.diagram:cardRect(chosen), "compact diagram promotes selected "..slot.." height="..large.diagram.height)
+end
+large.diagram.draws={}; large.diagram:prerender()
+for _,draw in ipairs(large.diagram.draws) do
+    assert(draw.y >= 0 and draw.y + (draw.height or 22) <= large.diagram.height,
+        "large-font diagram rendering stays inside its panel")
+end
 large:close()
 getTextManager = savedTextManager
 getSpecificPlayer = oldSpecificPlayer
-M.supported,M.candidates,M.toolKey,S.scan=saved.supported,saved.candidates,saved.toolKey,saved.scan
+M.supported,M.canOpen,M.candidates,M.toolKey,S.scan=saved.supported,saved.canOpen,saved.candidates,saved.toolKey,saved.scan

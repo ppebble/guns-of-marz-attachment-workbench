@@ -2,6 +2,7 @@
 -- No dependency becomes mandatory simply because an adapter is declared.
 -- Keep this module shared: client UI and multiplayer authority must agree.
 local A = {}
+local GoM = require "GMAW/Providers/GoM"
 local weapons, parts = {}, {}
 
 local function active(spec, mods)
@@ -30,6 +31,7 @@ function A.registerWeapon(id, spec)
         "weapon adapters must constrain their eligible firearms")
     weapons[#weapons + 1] = {
         id = id, owner = spec.owner, requires = spec.requires,
+        attachmentSystem = spec.attachmentSystem or "gom", slots = spec.slots,
         excludes = spec.excludes, mountOwners = spec.mountOwners,
         matches = spec.matches,
     }
@@ -48,8 +50,9 @@ function A.registerPart(id, spec)
         "part adapters must provide compatibility, tools and native completion")
     parts[#parts + 1] = {
         id = id, owner = spec.owner, requires = spec.requires,
+        attachmentSystem = spec.attachmentSystem or "gom",
         excludes = spec.excludes, compatible = spec.compatible,
-        canAttach = spec.canAttach, tools = spec.tools, action = spec.action,
+        canAttach = spec.canAttach, canDetach = spec.canDetach, tools = spec.tools, action = spec.action,
     }
 end
 
@@ -102,19 +105,29 @@ function A.weapon(weapon, catalog, slots)
     for _, adapter in ipairs(weapons) do
         if owner == adapter.owner and active(adapter, mods)
             and (not adapter.matches or adapter.matches(weapon))
-            and (not adapter.mountOwners or hasRegisteredMount(weapon, catalog, adapter.mountOwners, slots)) then
+            and (not adapter.mountOwners or hasRegisteredMount(weapon, catalog, adapter.mountOwners, adapter.slots or slots)) then
             return adapter
         end
     end
 end
 
--- First optional integration: GoM's own native MountOn registrations are the
--- compatibility authority. No Emre weapon IDs or parts are redefined here.
-A.registerWeapon("emre-gom", {
-    owner = "EmreFirearmsPack_B42",
-    requires = {"GunsOfMarz", "EmreFirearmsPack_B42", "EmreFPGoMCompat"},
-    excludes = {"MarzGuns"},
-    mountOwners = {GunsOfMarz = true, MarzGuns = true},
-})
+-- Routing identifies an attachment system; weapon admission still checks native
+-- MountOn through A.weapon. An unknown firearm owner receives no default.
+function A.weaponSystem(weapon)
+    if not weapon or not weapon.getModID then return nil end
+    if GoM.coreSupported(weapon) then return GoM.attachmentSystem end
+    local owner, mods = weapon:getModID(), getActivatedMods()
+    for _, adapter in ipairs(weapons) do
+        if owner == adapter.owner and active(adapter, mods)
+            and (not adapter.matches or adapter.matches(weapon)) then
+            return adapter.attachmentSystem
+        end
+    end
+end
+
+GoM.register(A)
+
+local Gael = require "GMAW/Providers/Gael"
+Gael.register(A)
 
 return A

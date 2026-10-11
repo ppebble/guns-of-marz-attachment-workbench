@@ -33,5 +33,7 @@ public class LuaHarness {
             }
             System.out.println("PASS " + path);
         }
+        Object geometry = tableClass.getMethod("rawget", Object.class).invoke(env, "GMAWTestGeometryJSON");
+        if (geometry != null) System.out.println("GMAW_GEOMETRY:" + geometry);
     }
 }

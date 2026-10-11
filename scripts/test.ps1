@@ -9,14 +9,14 @@ New-Item -ItemType Directory -Force (Join-Path $repo '.build') | Out-Null
 & $Javac -d (Join-Path $repo '.build') (Join-Path $repo 'tests/LuaHarness.java') (Join-Path $repo 'tests/TranslationHarness.java')
 if ($LASTEXITCODE -ne 0) { throw 'Harness compilation failed' }
 $files = @((Join-Path $repo 'tests/bootstrap.lua'))
-foreach ($name in @('Adapters','Attachments','Model','Planner','Sources','Batch','Presentation','Authority')) { $files += Join-Path $lua "shared/GMAW/$name.lua" }
+foreach ($name in @('Framework','Providers/GoM','Providers/Gael','Adapters','Attachments','Model','Planner','Sources','Batch','Presentation','Authority')) { $files += Join-Path $lua "shared/GMAW/$name.lua" }
 $files += Join-Path $repo 'tests/ui-bootstrap.test.lua'
 $files += Join-Path $repo 'tests/actions-bootstrap.test.lua'
 $files += Join-Path $lua 'shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $lua 'client/GMAW/Actions.lua'
 $files += Join-Path $lua 'client/GMAW/Window.lua'
 $files += Join-Path $lua 'server/GMAW/Server.lua'
-foreach ($test in @('planner','emre-compatibility','batch','sources','presentation','window','authority-bootstrap','authority','server-authority','actions')) { $files += Join-Path $repo "tests/$test.test.lua" }
+foreach ($test in @('planner','emre-compatibility','provider-matrix','batch','sources','presentation','window','texture-rendering','model-preview','authority-bootstrap','authority','server-authority','actions')) { $files += Join-Path $repo "tests/$test.test.lua" }
 $files += Join-Path $repo 'tests/legacy-bootstrap.test.lua'
 $files += Join-Path $lua 'shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $lua 'client/GMAW/Actions.lua'
@@ -33,3 +33,4 @@ try {
 } finally { Pop-Location }
 & node (Join-Path $repo 'tests/contracts.test.cjs')
 if ($LASTEXITCODE -ne 0) { throw 'Contracts failed' }
+& (Join-Path $PSScriptRoot 'test-gael.ps1') -GamePath $GamePath

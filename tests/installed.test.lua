@@ -115,3 +115,6 @@ M.cache["Base.TestScope"] = vanillaPart
 assert(M.supported(vanilla) and M.candidates(vanilla)["Base.TestScope"])
 function getActivatedMods() return { contains = function() return false end } end
 assert(not M.supported(vanilla), "vanilla-only installation disabled")
+-- Subsequent native-hook tests run under this installed provider, not the
+-- negative no-provider fixture above.
+function getActivatedMods() return {contains=function(_,id) return id == installedModID end} end

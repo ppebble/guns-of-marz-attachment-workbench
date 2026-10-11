@@ -1,7 +1,6 @@
 local M = require "GMAW/Model"
-local Required = require "WeaponSystems/Utils/RequiredAttachment"
-local Exclusives = require "WeaponSystems/Utils/UpgradeExclusives"
-local Universal = require "WeaponSystems/Utils/UniversalAttachment"
+local Framework = require "GMAW/Framework"
+local Required, Exclusives, Universal = Framework.Required, Framework.Exclusives, Framework.Universal
 local T = require "GMAW/Attachments"
 
 local A = {}
@@ -15,6 +14,23 @@ local function validArgs(args)
         and type(args.weaponID) == "number" and type(args.slot) == "string"
 end
 
+-- Native callbacks may be weaker on a dedicated server than in the UI.
+-- Verify every required tool group against the authoritative inventory.
+local function hasTools(player, slot, part, removing)
+    local inventory = player:getInventory()
+    for _, tags in ipairs(M.toolGroups(slot, part, removing)) do
+        local found = false
+        for _, tag in ipairs(tags) do
+            if inventory:getFirstTagEvalRecurse(tag, function(tool) return not tool:isBroken() end) then
+                found = true
+                break
+            end
+        end
+        if not found then return false end
+    end
+    return true
+end
+
 -- This is deliberately server-safe: client input only selects IDs already in
 -- the caller's recursive inventory. The server recomputes every mutable fact.
 function A.apply(player, args)
@@ -22,12 +38,14 @@ function A.apply(player, args)
     local inventory = player:getInventory()
     local weapon = itemByID(inventory, args.weaponID)
     if not weapon or not M.supported(weapon) then return false, "Weapon" end
+    if not M.actionSafe(weapon) then return false, "NativeConflict" end
 
     local installed = weapon:getWeaponPart(args.slot)
     if args.kind == "detach" then
         if not installed or (args.partID and installed:getID() ~= args.partID)
             or M.permanent(installed) or Required.IsRemovalBlocked(weapon, installed:getFullType())
-            or not installed:canDetach(player, weapon) then return false, "Detach" end
+            or not T.canDetach(installed, player, weapon) then return false, "Detach" end
+        if not hasTools(player, args.slot, installed, true) then return false, "Tools" end
         if T.owner(installed) then
             local action = T.action(player, weapon, installed, true)
             if not action:isValid() then return false, "Detach" end
@@ -44,16 +62,17 @@ function A.apply(player, args)
 
     -- Opt-in weapon adapters must use a catalog-listed native slot and part;
     -- never let a forged client request bypass the selected compatibility bridge.
-    if M.adapterFor(weapon) and not M.candidates(weapon)[args.fullType] then
+    if M.adapterFor(weapon) and not M.isCandidate(weapon, args.fullType) then
         return false, "Part"
     end
     local consumed = itemByID(inventory, args.partID)
-    if not consumed or consumed:isBroken() then return false, "Part" end
+    if not consumed or consumed:isBroken() or not M.partAllowed(weapon, consumed) then return false, "Part" end
     if T.owner(consumed) then
         if args.generic or consumed:getFullType() ~= args.fullType or consumed:getPartType() ~= args.slot
             or not T.compatible(consumed, weapon) or not T.canAttach(consumed, player, weapon) then
             return false, "Part"
         end
+        if not hasTools(player, args.slot, consumed, false) then return false, "Tools" end
         local action = T.action(player, weapon, consumed, false)
         if not action:isValid() then return false, "Part" end
         return action:complete() ~= false, consumed, "native"
@@ -70,6 +89,8 @@ function A.apply(player, args)
         end
     elseif consumed:getFullType() ~= args.fullType or consumed:getPartType() ~= args.slot
         or not consumed:canAttach(player, weapon) then return false, "Part" end
+
+    if not hasTools(player, args.slot, attached, false) then return false, "Tools" end
 
     -- Native completion owns refunds, underbarrel cleanup, modifiers and inventory packets.
     local action = ISUpgradeWeapon:new(player, weapon, consumed, args.generic and args.fullType or nil)

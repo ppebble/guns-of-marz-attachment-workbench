@@ -2,6 +2,7 @@ local B = require "GMAW/Batch"
 local R = require "WeaponSystems/Utils/RequiredAttachment"
 local old, new, rail = item("old", 1, "Scope"), item("new", 2, "Scope"), item("rail", 3, "RailUp")
 local w = {parts={Scope=old}}
+function w:getModID() return "GunsOfMarz" end
 function w:getAllWeaponParts() local list={}; for _,p in pairs(self.parts) do list[#list+1]=p end; return javaList(list) end
 local player = {}
 local plan = {{fullType="new",slot="Scope",old=old,source={item=new}}}

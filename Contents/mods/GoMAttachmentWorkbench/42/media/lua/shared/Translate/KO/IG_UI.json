@@ -79,5 +79,17 @@
     "IGUI_GMAW_ToolScrewdriver": "드라이버",
     "IGUI_GMAW_ToolWrench": "렌치",
     "IGUI_GMAW_ToolReady": "사용 가능",
-    "IGUI_GMAW_ToolMissing": "없음"
+    "IGUI_GMAW_ToolMissing": "없음",
+    "IGUI_GMAW_Slot_Mount": "조준경 마운트",
+    "IGUI_GMAW_Slot_L_Scope": "측면 조준경",
+    "IGUI_GMAW_Slot_Laser": "레이저",
+    "IGUI_GMAW_Slot_Light": "조명",
+    "IGUI_GMAW_Slot_Grip": "손잡이",
+    "IGUI_GMAW_Slot_Handguard": "총열덮개",
+    "IGUI_GMAW_Slot_Clip": "탄창",
+    "IGUI_GMAW_Slot_Barrel_Shroud": "총열 슈라우드",
+    "IGUI_GMAW_Slot_Hide_Beam": "빔 가림 부품",
+    "IGUI_GMAW_Slot_Misc": "기타 부품",
+    "IGUI_GMAW_Slot_Stool": "하부 부착물",
+    "IGUI_GMAW_NativeConflict": "GaelGunStore가 GoM 장착 동작을 덮어씁니다. GoM 총기를 개조하려면 GaelGunStore를 끄고 게임을 재시작하세요."
 }

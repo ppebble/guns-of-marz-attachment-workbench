@@ -2,15 +2,13 @@ require "ISUI/ISInventoryPaneContextMenu"
 require "ISUI/ISInventoryPage"
 require "TimedActions/ISInventoryTransferUtil"
 require "TimedActions/ISBaseTimedAction"
-require "WeaponSystems/Hooks/WeaponUpgradeHooks"
 require "GMAW/NativeCompletion"
 local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
 local S = require "GMAW/Sources"
 local B = require "GMAW/Batch"
-local Universal = require "WeaponSystems/Utils/UniversalAttachment"
-local Required = require "WeaponSystems/Utils/RequiredAttachment"
-local Exclusives = require "WeaponSystems/Utils/UpgradeExclusives"
+local Framework = require "GMAW/Framework"
+local Universal, Required, Exclusives = Framework.Universal, Framework.Required, Framework.Exclusives
 local A = { active = {}, results = {} }
 local T = require "GMAW/Attachments"
 
@@ -148,11 +146,12 @@ function A.advance(player, batch)
         end
     else
         if not weapon or not M.supported(weapon) then batch.error = "Stale"; return end
+        if not M.actionSafe(weapon) then batch.error = "NativeConflict"; return end
         if not batch.startedAssembly and M.fingerprint(weapon) ~= batch.expected then batch.error = "Stale"; return end
         batch.startedAssembly = true
         if op.kind == "detach" then
             local part = weapon:getWeaponPart(op.slot)
-            if not part or part:getID() ~= op.id or not part:canDetach(player, weapon)
+            if not part or part:getID() ~= op.id or not T.canDetach(part, player, weapon)
                 or M.permanent(part) or Required.IsRemovalBlocked(weapon, part:getFullType()) then
                 batch.error = "Stopped"; return
             end
@@ -165,7 +164,7 @@ function A.advance(player, batch)
             end)
         else
             local part = op.refundType and inv:getFirstTypeRecurse(op.refundType) or inv:getItemById(op.id)
-            if not part or part:isBroken() or weapon:getWeaponPart(op.slot)
+            if not part or part:isBroken() or not M.partAllowed(weapon, part) or weapon:getWeaponPart(op.slot)
                 or Required.IsInstallationBlocked(weapon, op.fullType)
                 or Exclusives.IsBlockedByExclusive(weapon, op.fullType) then batch.error = "Stopped"; return end
             -- Native removal refunds a new generic item, with a different ID.

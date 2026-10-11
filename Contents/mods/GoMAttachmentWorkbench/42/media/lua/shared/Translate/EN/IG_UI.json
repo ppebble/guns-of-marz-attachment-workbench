@@ -79,5 +79,17 @@
     "IGUI_GMAW_ToolScrewdriver": "Screwdriver",
     "IGUI_GMAW_ToolWrench": "Wrench",
     "IGUI_GMAW_ToolReady": "Available",
-    "IGUI_GMAW_ToolMissing": "Missing"
+    "IGUI_GMAW_ToolMissing": "Missing",
+    "IGUI_GMAW_Slot_Mount": "Optic mount",
+    "IGUI_GMAW_Slot_L_Scope": "Side optic",
+    "IGUI_GMAW_Slot_Laser": "Laser",
+    "IGUI_GMAW_Slot_Light": "Light",
+    "IGUI_GMAW_Slot_Grip": "Grip",
+    "IGUI_GMAW_Slot_Handguard": "Handguard",
+    "IGUI_GMAW_Slot_Clip": "Magazine",
+    "IGUI_GMAW_Slot_Barrel_Shroud": "Barrel shroud",
+    "IGUI_GMAW_Slot_Hide_Beam": "Beam cover",
+    "IGUI_GMAW_Slot_Misc": "Miscellaneous",
+    "IGUI_GMAW_Slot_Stool": "Underbarrel accessory",
+    "IGUI_GMAW_NativeConflict": "GaelGunStore replaces the native GoM attachment actions. Disable GaelGunStore and restart to modify GoM weapons safely."
 }

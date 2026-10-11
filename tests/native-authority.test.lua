@@ -11,6 +11,7 @@ function sendAddItemToContainer() added=added+1 end
 local gun = instanceItem("MarzGuns.M4A1")
 local rail = instanceItem("MarzGuns.Picatinny_Rail")
 local inv = inventory({gun, rail})
+inv:AddItem(testTool(ItemTag.SCREWDRIVER))
 function inv:getItemById(id) for _,p in ipairs(self.values) do if p:getID()==id then return p end end end
 function inv:contains(p) return self:getItemById(p:getID())==p end
 function inv:containsID(id) return self:getItemById(id)~=nil end

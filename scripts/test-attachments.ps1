@@ -28,7 +28,7 @@ try {
     $files += "$isil/ISIL_MarzGunsCompatibility.lua"
     $files += "$simple/simple-suppressors/compatibility.lua"
     $files += "$simple/simple-suppressors/weaponsystemscompat.lua"
-    foreach ($name in @('Adapters','Attachments','Model','Planner','Sources','Batch','Presentation','Authority')) { $files += "$lua/GMAW/$name.lua" }
+    foreach ($name in @('Framework','Providers/GoM','Providers/Gael','Adapters','Attachments','Model','Planner','Sources','Batch','Presentation','Authority')) { $files += "$lua/GMAW/$name.lua" }
     $files += "$repo/tests/native-actions-bootstrap.test.lua"
     $files += "$GamePath/media/lua/shared/TimedActions/ISUpgradeWeapon.lua"
     $files += "$GamePath/media/lua/shared/TimedActions/ISRemoveWeaponUpgrade.lua"

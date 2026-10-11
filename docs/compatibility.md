@@ -1,5 +1,17 @@
 # Compatibility scope
 
+## GaelGunStore and shared UI (2026-10-11)
+
+`GaelGunStore_B42` (Workshop 3616176188) is an optional independent provider. The workbench manifest has no required firearm/framework dependency. GoM still needs its own upstream dependencies; Gael alone never loads WeaponSystems or MarzWeapons modules.
+
+`Providers/GoM.lua` owns the original GoM/vanilla/Emre admission and tools. `Providers/Gael.lua` owns exact Gael item ownership, slots, dependency metadata and native actions. Common discovery, storage scanning, planning, rendering and server authority remain shared. The existing mod ID and sandbox keys are retained.
+
+Gael parts retain their FullTypes and are only offered on firearms explicitly routed to the Gael attachment system with native MountOn registrations. No GoM/Gael scopes or other parts are converted or shared. Shared `GGS_AttachmentDependencies` provides mount unlocks; screwdriver, slot conflict and dependent-parent removal checks run on the server too. Parent removal/replacement with installed children is conservatively rejected: remove children first. The entire `Stool` slot is excluded because it includes launchers carrying ammunition state; use Gael's original UI for those parts.
+
+Gael's upstream `FixCode/GGS_WeaponPartTimedActionFix.lua` globally replaces `ISUpgradeWeapon` callbacks, which can overwrite Gunworks generic outcomes and GoM barrel completion hooks. With Gael active, the workbench refuses non-Gael mutations with a translated `NativeConflict` explanation before transfers and again at execution/server validation. Catalogs remain isolated. This is not a compatibility patch for running both original firearm systems together; disable Gael and restart to modify GoM weapons.
+
+`scripts/test-gael.ps1 -Installed` reads Gael definitions and runs its actual shared dependency and timed-action modules in the installed game's Kahlua VM, with mocked engine inventories/players. Upstream files are read-only and never shipped. Native client UI, real remote replication, animations and firing behavior require separate in-game verification.
+
 ## Guns of Marz Old Version
 
 Supported source target: Workshop 3722134990, `mods/GunsOfMarzPreviousVersion/42.16`, mod ID `MarzGuns`, with the installed Gunworks Framework. Game minimum remains B42.20.4; this is not B41 support or a promise for every historical GoM release.
