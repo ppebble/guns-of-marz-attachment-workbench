@@ -81,6 +81,8 @@ assert(action.maxTime==50 and action:isValid() and action:complete())
 assert(gun.parts.Suppressor==part and not inv:contains(part))
 assert(not T.action(player,gun,part,true):isValid(), "removal requires upstream screwdriver")
 player.hasScrewdriver=true
+local carriedScrewdriver=testTool(ItemTag.SCREWDRIVER)
+inv:AddItem(carriedScrewdriver)
 assert(T.action(player,gun,part,true):isValid())
 assert(T.action(player,gun,part,true):complete() and inv:contains(part))
 -- MP authority must use upstream hooks, reject forged swaps, and not consume twice.

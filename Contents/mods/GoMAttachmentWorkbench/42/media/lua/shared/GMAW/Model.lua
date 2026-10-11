@@ -1,7 +1,7 @@
-local Required = require "WeaponSystems/Utils/RequiredAttachment"
-local Permanent = require "WeaponSystems/Utils/PreventRemovals"
-local Universal = require "WeaponSystems/Utils/UniversalAttachment"
-local Exclusives = require "WeaponSystems/Utils/UpgradeExclusives"
+local Framework = require "GMAW/Framework"
+local Permanent = Framework.Permanent
+local GoM = require "GMAW/Providers/GoM"
+local Gael = require "GMAW/Providers/Gael"
 local Attachments = require "GMAW/Attachments"
 local Adapters = require "GMAW/Adapters"
 local M = {}
@@ -9,45 +9,41 @@ local M = {}
 -- Player-facing order: attachments first; prerequisite rails/mounts are last.
 M.slots = { "Scope", "LaserRifle", "LightRifle", "Foregrip", "Bipod", "Underbarrel",
     "Canon", "Suppressor", "Barrel", "Shellholder", "Stock", "Sling", "RecoilPad", "RailUp",
-    "RailDown", "RailLeft", "RailRight", "CanonMount" }
-
-local function gomEnabled()
-    local mods = getActivatedMods()
-    return mods:contains("GunsOfMarz") ~= mods:contains("MarzGuns")
-end
+    "RailDown", "RailLeft", "RailRight", "CanonMount",
+    "Mount", "L_Scope", "Laser", "Light", "Grip", "Handguard",
+    "Barrel_Shroud", "Misc", "Stool" }
 
 function M.enabled()
-    return gomEnabled() or Adapters.anyWeaponEnabled()
+    return GoM.enabled() or Adapters.anyWeaponEnabled()
+end
+M.owned = GoM.owned
+M.coreSupported = GoM.coreSupported
+function M.actionSafe(weapon)
+    return not getActivatedMods():contains("GaelGunStore_B42")
+        or Adapters.weaponSystem(weapon) == Gael.attachmentSystem
+end
+function M.partAllowed(weapon, part)
+    return Attachments.sameProvider(part, weapon)
 end
 
-function M.owned(item)
-    local id = item:getModID()
-    return id == "GunsOfMarz" or id == "MarzGuns" or id == "pz-vanilla"
+local providers = {[GoM.attachmentSystem]=GoM, [Gael.attachmentSystem]=Gael}
+local slotSets = {}
+for id, provider in pairs(providers) do
+    local slots = {}
+    for _, slot in ipairs(provider.slots) do slots[slot] = true end
+    slotSets[id] = slots
 end
 
--- Simple Suppressors re-declares these vanilla scripts for render mappings,
--- changing their reported owner. Do not admit arbitrary Base/addon firearms.
-local simpleVanilla = {
-    ["Base.Shotgun"]=true, ["Base.JS3T_Shotgun"]=true,
-    ["Base.AssaultRifle"]=true, ["Base.VarmintRifle"]=true, ["Base.JS14_Rifle"]=true,
-    ["Base.Pistol"]=true, ["Base.Pistol2"]=true, ["Base.Pistol3"]=true,
-    ["Base.TrapperCarbine"]=true, ["Base.L92_Carbine"]=true, ["Base.L94_Rifle"]=true,
-    ["Base.AssaultRifle2"]=true, ["Base.HuntingRifle"]=true, ["Base.MSR7T_Rifle"]=true,
-}
-
--- Keep existing GoM / vanilla admission separate from opt-in adapters.
-function M.coreSupported(item)
-    return gomEnabled() and (M.owned(item) or (item:getModID() == "SimpleSuppressors"
-        and getActivatedMods():contains("SimpleSuppressors") and simpleVanilla[item:getFullType()] == true))
+function M.providerFor(item)
+    return providers[Adapters.weaponSystem(item)]
 end
-
-local supportedSlots = {}
-for _, slot in ipairs(M.slots) do supportedSlots[slot] = true end
 
 function M.adapterFor(item)
     if not item or not instanceof(item, "HandWeapon") or not item:isRanged() then return nil end
     if not Adapters.hasActiveWeaponOwner(item) then return nil end
-    return Adapters.weapon(item, M.catalog(), supportedSlots)
+    local system = Adapters.weaponSystem(item)
+    if not providers[system] then return nil end
+    return Adapters.weapon(item, M.catalog(), slotSets[system])
 end
 
 function M.supported(item)
@@ -92,7 +88,9 @@ function M.catalog()
         local script = scripts:get(i)
         if (M.owned(script) or Attachments.owner(script)) and script:isItemType(ItemType.WEAPON_PART) and not script:getObsolete() then
             local part = instanceItem(script:getFullName())
-            if part and (M.owned(part) or Attachments.owner(part)) and not Permanent.IsPermanent(part:getFullType()) then
+            if part and (M.owned(part) or Attachments.owner(part))
+                and (not Gael.owns(part) or Gael.selectable(part))
+                and (Gael.owns(part) or not Permanent.IsPermanent(part:getFullType())) then
                 out[part:getFullType()] = part
             end
         end
@@ -112,24 +110,54 @@ function M.modelTypes(weapon)
     return allowed
 end
 
+local function eligible(weapon, part, slots)
+    if not slots[part:getPartType()] or not Attachments.compatible(part, weapon) then return false end
+    -- Optional suppressors own their caliber-aware mount contract.
+    if Attachments.owner(part) == "SimpleSuppressors" then return true end
+    local mounts = part:getMountOn()
+    for i=0,mounts:size()-1 do
+        if mounts:get(i) == weapon:getFullType() then return true end
+    end
+    return false
+end
+
+-- Authority needs membership for the requested part, not the entire preview
+-- dependency graph. Native attach checks still validate the live weapon later.
+function M.isCandidate(weapon, fullType)
+    local provider = M.providerFor(weapon)
+    if not provider then return false end
+    local part = M.catalog()[fullType]
+    return part ~= nil and eligible(weapon, part, slotSets[provider.attachmentSystem])
+end
+
+function M.canOpen(weapon)
+    if not M.supported(weapon) then return false end
+    local provider = M.providerFor(weapon)
+    if not provider then return false end
+    local slots, catalog = slotSets[provider.attachmentSystem], M.catalog()
+    for _, part in pairs(catalog) do
+        if eligible(weapon, part, slots) then return true end
+    end
+    -- Installed known parts can still be removed after a mount mapping changes.
+    -- Tool availability and carried stock must not hide the nearby-source UI.
+    for _, part in pairs(M.installed(weapon)) do
+        if catalog[part:getFullType()] and slots[part:getPartType()]
+            and Attachments.sameProvider(part, weapon)
+            and provider.removable(part, weapon) then return true end
+    end
+    return false
+end
+
 function M.candidates(weapon)
-    local out, slots = {}, {}
-    for _, slot in ipairs(M.slots) do slots[slot] = true end
-    for fullType, part in pairs(M.catalog()) do
-        local mounts, mountOK = part:getMountOn(), false
-        for i = 0, mounts:size() - 1 do
-            if mounts:get(i) == weapon:getFullType() then mountOK = true end
-        end
-        -- MountOn is the native compatibility contract used by the vanilla
-        -- upgrade menu. ModelWeaponPart is visual metadata only: filtering by
-        -- it hid valid left/right/down rails and valid sights on GoM weapons.
-        if slots[part:getPartType()] and Attachments.compatible(part, weapon)
-            and (mountOK or Attachments.owner(part) == "SimpleSuppressors") then
-            out[fullType] = { part = part, slot = part:getPartType(),
-                all = Required.Dependencies[fullType] or {},
-                any = Required.AnyDependencies[fullType] or {},
-                excludes = Exclusives.Exclusives[fullType] or {},
-                consume = Universal.GetGenericItemTypeForOutcome(weapon, fullType) or fullType }
+    local out, provider = {}, M.providerFor(weapon)
+    if not provider then return out end
+    local slots, catalog = slotSets[provider.attachmentSystem], M.catalog()
+    local context = provider.prepareMetadata and provider.prepareMetadata(weapon, catalog)
+    for fullType, part in pairs(catalog) do
+        if eligible(weapon, part, slots) then
+            local entry = provider.metadata(weapon, part, catalog, context)
+            entry.part, entry.slot = part, part:getPartType()
+            out[fullType] = entry
         end
     end
     return out
@@ -158,20 +186,7 @@ function M.toolGroups(slot, part, removing)
     if not ItemTag then return {} end
     local optional = Attachments.tools(part, removing)
     if optional then return optional end
-    -- The shipped Old Version uses ItemCodeOnTest.hasScrewdriver, not the
-    -- current GoM slot-specific wrench / screwdriver callback.
-    if getActivatedMods():contains("MarzGuns") then return {{ItemTag.SCREWDRIVER}} end
-    if slot == "Foregrip" then return {} end
-    if slot == "CanonMount" or slot == "Canon" then
-        return {{ItemTag.WRENCH, ItemTag.PIPE_WRENCH}}
-    end
-    if slot == "Barrel" then
-        return {{ItemTag.SCREWDRIVER}, {ItemTag.WRENCH, ItemTag.PIPE_WRENCH}}
-    end
-    local screwdriverSlots = {Scope=true, RailUp=true, RailDown=true, RailRight=true,
-        RailLeft=true, Bipod=true, Shellholder=true, Stock=true, Underbarrel=true,
-        Sling=true, LaserRifle=true, LightRifle=true}
-    return screwdriverSlots[slot] and {{ItemTag.SCREWDRIVER}} or {}
+    return GoM.toolGroups(slot)
 end
 
 function M.isMountCandidate(catalog, fullType)
@@ -185,19 +200,13 @@ function M.isMountCandidate(catalog, fullType)
 end
 
 function M.permanent(part)
-    return Permanent.IsPermanent(part:getFullType())
+    return not Gael.owns(part) and Permanent.IsPermanent(part:getFullType())
 end
 
 function M.toolKey(part)
     local optional = Attachments.tools(part, false)
     if optional then return #optional == 0 and "NoTools" or "Screwdriver" end
-    if part:getModID() == "MarzGuns" then return "Screwdriver" end
-    if part:getModID() ~= "GunsOfMarz" then return "Tools" end
-    local slot = part:getPartType()
-    if slot == "Barrel" then return "BothTools" end
-    if slot == "Canon" or slot == "CanonMount" then return "Wrench" end
-    if slot == "Foregrip" then return "NoTools" end
-    return "Screwdriver"
+    return GoM.toolKey(part)
 end
 
 return M

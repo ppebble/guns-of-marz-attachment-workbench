@@ -169,12 +169,19 @@ local customInv = {
     end,
 }
 local customPlayer = {getInventory=function() return customInv end}
+local originalCandidates, authorityCatalogBuilds = M.candidates, 0
+M.candidates = function(...)
+    authorityCatalogBuilds = authorityCatalogBuilds + 1
+    return originalCandidates(...)
+end
 local applied, nativePart, nativeKind = Authority.apply(customPlayer, {
     kind="install", weaponID=77, partID=78,
     slot="Scope", fullType=customPart:getFullType(),
 })
 assert(applied and nativePart == customPart and nativeKind == "native" and createdActions == 2,
     "server safely routes an explicitly registered non-GoM native part")
+M.candidates = originalCandidates
+assert(authorityCatalogBuilds == 0, "server validates selected part without constructing every preview dependency")
 assert(not pcall(function() A.registerPart("invalid-action", {
     owner="UnknownParts", requires={"UnknownParts"},
 }) end), "part owners require complete native callback contracts")

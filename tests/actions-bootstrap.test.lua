@@ -38,6 +38,8 @@ ISUpgradeWeapon={complete=function() end,new=function(_,player,weapon,part,outco
     return {player=player,kind="install",weapon=weapon,part=part,outcome=outcome,perform=function() end}
 end}
 ISRemoveWeaponUpgrade={complete=function() end}
+modules["TimedActions/ISUpgradeWeapon"] = ISUpgradeWeapon
+modules["TimedActions/ISRemoveWeaponUpgrade"] = ISRemoveWeaponUpgrade
 MarzGuns_AttachAndDetach={getPrimaryTool=function() return nil end}
 local R=require "WeaponSystems/Utils/RequiredAttachment"
 R.IsRemovalBlocked=function() return false end; R.IsInstallationBlocked=function() return false end

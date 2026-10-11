@@ -1,9 +1,10 @@
 param(
     [switch]$Legacy,
+    [ValidateSet('Current','Legacy','Gael','Emre')][string]$Provider = 'Current',
     [string]$DedicatedRoot = 'C:\Program Files (x86)\Steam\steamapps\common\Project Zomboid Dedicated Server'
 )
 $ErrorActionPreference = 'Stop'
-$cache = & (Join-Path $PSScriptRoot 'prepare-server-smoke.ps1') -Legacy:$Legacy
+$cache = & (Join-Path $PSScriptRoot 'prepare-server-smoke.ps1') -Legacy:$Legacy -Provider $Provider
 $start = New-Object System.Diagnostics.ProcessStartInfo
 $start.FileName = Join-Path $DedicatedRoot 'jre64/bin/java.exe'
 $start.WorkingDirectory = $DedicatedRoot

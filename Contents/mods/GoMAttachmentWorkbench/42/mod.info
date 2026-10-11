@@ -1,7 +1,6 @@
 name=GoM Attachment Workbench
 id=GoMAttachmentWorkbench
-description=Nearby-storage attachment workbench for current or Old Version Guns of Marz and vanilla firearms. Enable exactly one GoM version plus Gunworks Framework. English and Korean.
+description=Shared nearby-storage attachment workbench with separate Guns of Marz and GaelGunStore integrations. Enable a supported firearm mod; GaelGunStore does not require GoM or Gunworks. English, Korean and Simplified Chinese.
 versionMin=42.20.4
-require=SWMG
-loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors,EmreFirearmsPack_B42,EmreFPGoMCompat
+loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors,EmreFirearmsPack_B42,EmreFPGoMCompat,GaelGunStore_B42
 author=ask13

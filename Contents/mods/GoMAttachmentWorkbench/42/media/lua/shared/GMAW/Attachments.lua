@@ -1,6 +1,8 @@
 -- Optional, part-only integration. Never infer ownership from the Base module.
 local T = {}
 local Adapters = require "GMAW/Adapters"
+local Gael = require "GMAW/Providers/Gael"
+local GoM = require "GMAW/Providers/GoM"
 local registeredSimple
 
 local function simpleCompatibility()
@@ -35,7 +37,23 @@ function T.owner(part)
     return adapter and adapter.id
 end
 
+function T.partSystem(part)
+    local adapter = Adapters.part(part)
+    if adapter then return adapter.attachmentSystem end
+    if part and part.getModID and GoM.owned(part) then return GoM.attachmentSystem end
+    local owner = T.owner(part)
+    if owner == "SimpleSuppressors" or owner == "ImprovisedSilencers" then
+        return GoM.attachmentSystem
+    end
+end
+
+function T.sameProvider(part, weapon)
+    local system = T.partSystem(part)
+    return system ~= nil and system == Adapters.weaponSystem(weapon)
+end
+
 function T.compatible(part, weapon)
+    if not T.sameProvider(part, weapon) then return false end
     if T.owner(part) == "SimpleSuppressors" then
         -- MountOn is deliberately broad upstream; caliber/sandbox checks are not.
         return simpleCompatibility().canAttach(nil, weapon, part) == true
@@ -45,12 +63,30 @@ function T.compatible(part, weapon)
 end
 
 function T.canAttach(part, player, weapon)
+    if not T.sameProvider(part, weapon) then return false end
     if T.owner(part) == "SimpleSuppressors" then
         return simpleCompatibility().canAttachDynamic(player, weapon, part) == true
     end
     local adapter = Adapters.part(part)
     if adapter then return adapter.canAttach(part, player, weapon) == true end
     return part:canAttach(player, weapon)
+end
+
+-- The planner validates final-state dependencies and conflicts. During preview
+-- a selected parent may still be in inventory; runtime uses strict canAttach.
+function T.canPlanAttach(part, player, weapon)
+    if Gael.owns(part) then
+        return T.sameProvider(part, weapon) and Gael.selectable(part)
+            and part:canAttach(player, weapon)
+    end
+    return T.canAttach(part, player, weapon)
+end
+
+function T.canDetach(part, player, weapon)
+    if not T.sameProvider(part, weapon) then return false end
+    local adapter = Adapters.part(part)
+    if adapter and adapter.canDetach then return adapter.canDetach(part, player, weapon) == true end
+    return part:canDetach(player, weapon)
 end
 
 function T.tools(part, removing)

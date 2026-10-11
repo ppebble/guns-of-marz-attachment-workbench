@@ -14,6 +14,7 @@ modules["WeaponSystems/Utils/Underbarrel"] = { IsWeaponInUnderbarrelMode = funct
 modules["WeaponSystems/Utils/StatsFactory"] = { ReapplyAllModifiers = function() end }
 function item(fullType, id, slot)
     return { getFullType = function() return fullType end, getID = function() return id end,
+        getModID = function() return "GunsOfMarz" end,
         getPartType = function() return slot end, isBroken = function() return false end,
         canAttach = function() return true end, canDetach = function() return true end }
 end
@@ -22,9 +23,23 @@ function javaList(values)
 end
 function inventory(values)
     return { values = values, getItems = function(self) return javaList(self.values) end,
+        getFirstTagEvalRecurse = function(self, tag, predicate)
+            for _, value in ipairs(self.values) do
+                if value.hasTag and value:hasTag(tag) and predicate(value) then return value end
+                if value.getInventory then
+                    local found = value:getInventory():getFirstTagEvalRecurse(tag, predicate)
+                    if found then return found end
+                end
+            end
+        end,
         isRemoveItemAllowed = function() return true end,
         AddItem = function(self, it) self.values[#self.values + 1] = it; return it end,
         Remove = function(self, it) for i, value in ipairs(self.values) do if value == it then table.remove(self.values, i); return end end end }
+end
+function testTool(tag, id)
+    local tool = item("Base.TestTool", id or 98765, "Tool")
+    function tool:hasTag(value) return value == tag end
+    return tool
 end
 function instanceof(obj, name) return obj and obj.class == name end
 function isClient() return false end

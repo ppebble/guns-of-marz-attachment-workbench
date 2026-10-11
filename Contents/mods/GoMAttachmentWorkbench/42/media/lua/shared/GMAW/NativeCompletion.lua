@@ -1,6 +1,11 @@
 -- Preserve upstream mutations and explicit failures; normalize a successful
 -- nil return to the Boolean required by B42 NetTimedAction.perform.
-require "WeaponSystems/Hooks/WeaponUpgradeHooks"
+local Framework = require "GMAW/Framework"
+Framework.loadActions()
+-- Gael and vanilla already return Booleans; this repair belongs only to GoM.
+if not getActivatedMods():contains("GunsOfMarz") and not getActivatedMods():contains("MarzGuns") then
+    return true
+end
 -- Load the active GoM completion hook before applying the outermost repair.
 -- Current CanShoot and the Old Version hook both drop completion returns.
 if getActivatedMods():contains("GunsOfMarz") then

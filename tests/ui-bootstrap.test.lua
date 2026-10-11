@@ -9,6 +9,11 @@ function UI:initialise() end
 function UI:instantiate() end
 function UI:createChildren() end
 function UI:addChild() end
+function UI:removeChild() end
+function UI:setX(v) self.x=v end
+function UI:setY(v) self.y=v end
+function UI:setWidth(v) self.width=v end
+function UI:setHeight(v) self.height=v end
 function UI:addToUIManager() if not self.created then self.created=true; self:createChildren() end end
 function UI:removeFromUIManager() end
 function UI:setVisible(value) self.visible=value end
@@ -47,6 +52,17 @@ function ISTextEntryBox:new(text,x,y,width,height)
     local box=UI.new(self,x,y,width,height); box.text=text; return box
 end
 ISToolTipInv=UI:derive()
+ISUI3DScene=UI:derive()
+function ISUI3DScene:instantiate()
+    self.calls={}
+    local function call(_,name,...)
+        self.calls[#self.calls+1]={name=name,args={...}}
+        if name=="getObjectTranslation" then return {set=function(_,x,y,z) self.translation={x,y,z} end} end
+    end
+    self.javaObject={fromLua1=call,fromLua2=call,fromLua3=call}
+end
+function ISUI3DScene:setView(v) self.view=v end
+modules["Vehicles/ISUI/ISUI3DScene"]=ISUI3DScene
 function ISToolTipInv:new(item)
     local o=UI.new(self,0,0,0,0); o.item=item; return o
 end

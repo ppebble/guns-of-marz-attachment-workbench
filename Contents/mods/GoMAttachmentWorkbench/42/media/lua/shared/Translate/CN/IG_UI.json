@@ -79,5 +79,17 @@
     "IGUI_GMAW_ToolScrewdriver": "螺丝刀",
     "IGUI_GMAW_ToolWrench": "扳手",
     "IGUI_GMAW_ToolReady": "可用",
-    "IGUI_GMAW_ToolMissing": "缺少"
+    "IGUI_GMAW_ToolMissing": "缺少",
+    "IGUI_GMAW_Slot_Mount": "瞄具支架",
+    "IGUI_GMAW_Slot_L_Scope": "侧面瞄具",
+    "IGUI_GMAW_Slot_Laser": "激光",
+    "IGUI_GMAW_Slot_Light": "照明",
+    "IGUI_GMAW_Slot_Grip": "握把",
+    "IGUI_GMAW_Slot_Handguard": "护木",
+    "IGUI_GMAW_Slot_Clip": "弹匣",
+    "IGUI_GMAW_Slot_Barrel_Shroud": "枪管护罩",
+    "IGUI_GMAW_Slot_Hide_Beam": "光束遮罩",
+    "IGUI_GMAW_Slot_Misc": "其他配件",
+    "IGUI_GMAW_Slot_Stool": "下挂配件",
+    "IGUI_GMAW_NativeConflict": "GaelGunStore 会覆盖 GoM 的配件操作。请关闭 GaelGunStore 并重启游戏后改装 GoM 武器。"
 }

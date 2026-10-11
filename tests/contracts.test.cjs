@@ -4,18 +4,19 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const mod = path.join(root, 'Contents/mods/GoMAttachmentWorkbench/42');
 const read = p => fs.readFileSync(path.join(mod, p), 'utf8');
-assert.match(read('mod.info'), /^require=SWMG$/m);
-assert.match(read('mod.info'), /^loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors,EmreFirearmsPack_B42,EmreFPGoMCompat$/m);
+assert.doesNotMatch(read('mod.info'), /^require=.+$/m, 'providers remain optional');
+assert.match(read('mod.info'), /^loadModAfter=SWMG,GunsOfMarz,MarzGuns,ImprovisedSilencers,SimpleSuppressors,EmreFirearmsPack_B42,EmreFPGoMCompat,GaelGunStore_B42$/m);
 assert.doesNotMatch(read('mod.info'), /^require=.*(?:EmreFirearmsPack_B42|EmreFPGoMCompat)/m,
   'Emre must never become a required dependency');
 assert.doesNotMatch(read('mod.info'), /^incompatible=.*MarzGuns/m);
 const adapters = read('media/lua/shared/GMAW/Adapters.lua');
 assert.match(adapters, /function A\.registerWeapon\(/, 'external weapon adapters can be registered');
 assert.match(adapters, /function A\.registerPart\(/, 'external part adapters must define native actions');
-assert.match(adapters, /owner = "EmreFirearmsPack_B42"/, 'Emre opt-in uses its exact owner');
-assert.match(adapters, /"EmreFPGoMCompat"/, 'Emre opt-in requires the compatibility bridge');
+const gomProvider = read('media/lua/shared/GMAW/Providers/GoM.lua');
+assert.match(gomProvider, /owner\s*=\s*"EmreFirearmsPack_B42"/, 'Emre opt-in uses its exact owner');
+assert.match(gomProvider, /"EmreFPGoMCompat"/, 'Emre opt-in requires the compatibility bridge');
 assert.match(adapters, /hasRegisteredMount/, 'third-party weapons must have native registration');
-assert.match(read('media/lua/shared/GMAW/Authority.lua'), /M\.adapterFor\(weapon\).*M\.candidates\(weapon\)/,
+assert.match(read('media/lua/shared/GMAW/Authority.lua'), /M\.adapterFor\(weapon\).*M\.isCandidate\(weapon, args\.fullType\)/,
   'server blocks client-invented parts for adapter weapons');
 function translations(lang) {
   assert.ok(!fs.existsSync(path.join(mod,`media/lua/shared/Translate/${lang}/IGUI_${lang}.txt`)), 'Incorrect old translation filename must not ship');

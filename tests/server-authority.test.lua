@@ -14,6 +14,7 @@ function weapon:attachWeaponPart(_, part) self.parts[part:getPartType()] = part 
 function weapon:detachWeaponPart(_, part) self.parts[part:getPartType()] = nil end
 local part = item("MarzGuns.Scope", 91, "Scope")
 local inv = inventory({ weapon, part })
+inv:AddItem(testTool(ItemTag.SCREWDRIVER))
 function inv:getItemById(id)
     for _, value in ipairs(self.values) do if value:getID() == id then return value end end
 end
