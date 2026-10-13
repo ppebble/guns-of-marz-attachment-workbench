@@ -84,7 +84,7 @@ for _,origin in ipairs({-0.7,0,0.9}) do
     local pixels=324/1366*math.exp(2.6)*160/1.82
     assert((envelope.right-envelope.left)*scale*pixels<=324*0.86+0.001,
         "silhouette envelope width stays inside the scene")
-    assert(math.max(envelope.top-envelope.bottom,(envelope.right-envelope.left)*0.47)*scale*pixels<=140*0.86+0.001,
+    assert(math.max(envelope.top-envelope.bottom,(envelope.right-envelope.left)*0.30)*scale*pixels<=140*0.86+0.001,
         "silhouette envelope height stays inside the scene")
     local calls=#preview.calls;d:fitModelPreview(preview)
     assert(#preview.calls==calls,"framing never repeats on steady frames")
@@ -187,7 +187,7 @@ for _,owner in ipairs({"GunsOfMarz","MarzGuns"}) do
     local b=d:modelFrame(pistol,-1)
     assert(b.top>0 and b.bottom<0,"handgun frame follows its corrected up axis")
 end
-for _,name in ipairs({"M92FS","M93R","USP","DEAGLE","HIPOWER","P226","M1911",
+for _,name in ipairs({"TEC9","MP5K","MAC10","M92FS","M93R","USP","DEAGLE","HIPOWER","P226","M1911",
     "VP70M","SW629","MP412","RHINO","COLT_SINGLE","PYTHON","DETECTIVE_38"}) do
     local script={getFullType=function() return "MarzGuns."..name end}
     assert(d:modelUpSign(gun(name,"GunsOfMarz"),script)==-1,"verified handgun axis: "..name)
@@ -199,5 +199,83 @@ assert(d:modelUpSign(gun("M16A2","GunsOfMarz"),
     {getFullType=function() return "MarzGuns.M16A2" end})==1,"GoM rifles keep their existing up axis")
 assert(d:modelUpSign(gun("M92FS","GunsOfMarz"),
     {getFullType=function() return "Other.M92FS" end})==1,"handgun axis override requires the verified model namespace")
+d:clearModelPreview()
+getScriptManager=pistolManager
+
+-- Owner-specific anchor profiles are optional: GGS, Emre and future providers
+-- must all reach the same installed-part renderer and enlarged default frame.
+local bridgeManager=getScriptManager
+local bridgeBody={size=function() return 2 end,get=function()
+    return "item Rifle { ModelWeaponPart = Optic OpticModel mount Scope, }"
+end}
+local bridgeScript={getFullName=function() return "FutureArms.Rifle" end,
+    getLoadedScriptBodies=function() return bridgeBody end}
+local bridgePart={getFullType=function() return "FutureArms.Optic" end}
+getScriptManager=function() return {getModelScript=function(_,name)
+    return {getFullType=function() return name end,
+        getAttachmentCount=function() return 2 end,
+        getAttachment=function(_,index)
+            return index==0 and attachment("stock",0,-0.1,0) or attachment("muzzle",0,0.5,0.04)
+        end}
+end} end
+local sharedScale
+for _,owner in ipairs({"GaelGunStore_B42","EmreFirearmsPack_B42","FutureUnregisteredOwner"}) do
+    local item=gun("FutureArms.Rifle",owner)
+    item.getScriptItem=function() return bridgeScript end
+    item.getAllWeaponParts=function() return {size=function() return 1 end,get=function() return bridgePart end} end
+    assert(d:updateModelPreview(item,l))
+    local preview=d.modelScene
+    assert(#preview.installedModelIds==1,owner.." renders installed part without a GoM dependency")
+    assert(not preview.framing,owner.." uses common default without a per-owner scale table")
+    if sharedScale then assert(math.abs(preview.anchorScale-sharedScale)<0.000001,"same geometry uses same scale across owners") end
+    sharedScale=preview.anchorScale
+    local callCount=#preview.calls
+    for i=1,10 do assert(d:updateModelPreview(item,l)) end
+    assert(#preview.calls==callCount,"unknown/known owners avoid steady-state native rebuilds")
+end
+d:clearModelPreview()
+getScriptManager=bridgeManager
+
+-- GoM AR15 measured BODY is much shallower than the generic silhouette
+-- estimate. Enlarge within its existing viewport, keeping barrel/stock room.
+local ar15=model({attachment("muzzle",0,0.4966,0.0247),
+    attachment("bolt_fired",0,-0.047,0),attachment("scope",0,0.0804,0.067)})
+local arBounds=d:modelFrame(ar15)
+local generic=ISUI3DScene:new(0,0,550,140);generic:instantiate();generic.frameBounds=arBounds
+generic.framing={down=0.24,up=0.18,minDown=0.11,minUp=0.11,minAspect=0.47}
+d:fitModelPreview(generic)
+local gom=ISUI3DScene:new(0,0,550,140);gom:instantiate();gom.frameBounds=arBounds
+gom.framing=GoMProfile.framing
+d:fitModelPreview(gom)
+assert(gom.modelScale[1]>generic.modelScale[1]*1.3,"common preview recovers at least 30 percent scale in shallow viewport")
+local oldEnvelope,newEnvelope=d:modelEnvelope(arBounds,generic.framing),d:modelEnvelope(arBounds)
+assert(oldEnvelope.left==newEnvelope.left and oldEnvelope.right==newEnvelope.right,
+    "larger GoM preview retains conservative stock and full barrel clearance")
+assert(newEnvelope.bottom< -0.0677 and newEnvelope.top>0.0718,"measured AR15 BODY remains inside frame")
+assert(d:modelEnvelope(arBounds).top==newEnvelope.top,"unknown providers inherit enlarged common framing")
+for _,sample in ipairs({
+    {name="MP5K",muzzle=0.228,scope=-0.0693,bottom=-0.1021,top=0.1434},
+    {name="TEC9",muzzle=0.2163,scope=-0.0406,bottom=-0.0804,top=0.0596},
+}) do
+    local bounds=d:modelFrame(model({attachment("muzzle",0,sample.muzzle,0),
+        attachment("magazine",0,0,0),attachment("scope",0,0.08,sample.scope)}),-1)
+    local before=d:modelEnvelope(bounds)
+    local after=d:modelEnvelope(bounds,GoMProfile.modelFraming[sample.name])
+    assert(after.top-after.bottom<before.top-before.bottom,sample.name.." compact frame also grows the model")
+    assert(after.bottom<sample.bottom and after.top>sample.top,sample.name.." measured composed geometry fits")
+end
+
+-- A stateful firearm may change its base model without changing item identity.
+local changingName="First"
+local changing=gun("unused")
+changing.getStaticModel=function() return changingName end
+getScriptManager=function() return {getModelScript=function(_,name)
+    return {getFullType=function() return "Base."..name end}
+end} end
+assert(d:updateModelPreview(changing,l))
+local oldScene=d.modelScene
+changingName="Second"
+assert(d:updateModelPreview(changing,l) and d.modelScene~=oldScene and not oldScene.visible,
+    "same item with changed static model releases and rebuilds preview")
 d:clearModelPreview()
 getScriptManager=pistolManager

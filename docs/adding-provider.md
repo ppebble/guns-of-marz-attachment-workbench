@@ -77,6 +77,22 @@ ordering. This is not runtime mod hot-loading. Slots use
 `IGUI_GMAW_Slot_<slot>` translations supplied by the integration. New slots get
 generic card placement and no connecting lines without a verified visual profile.
 
+### Shared preview behaviour
+
+New providers automatically inherit the common enlarged weapon framing and
+installed-part rendering. No GoM/GGS owner registration or visual profile is
+required for these features. Standard native `ModelWeaponPart` declarations in
+the item's loaded script bodies supply model names and parent/self sockets;
+`getAllWeaponParts()` supplies the actual installed items. Uninstalled queued
+parts are not shown. Definitions are cached and unchanged loadouts do not rebuild
+the scene. This display path does not grant installation authority or make an
+unsupported attachment system supported.
+
+Keep special model rotations and measured framing exceptions in visual profiles.
+Runtime-only mapping replacements absent from loaded script bodies, and custom
+non-native attachment systems, require an explicit integration. Test visuals in
+the real client before claiming arbitrary third-party geometry fits.
+
 ## B: another weapon owner sharing A's parts
 
 Only add a weapon adapter with A's attachmentSystem, both required mod IDs and

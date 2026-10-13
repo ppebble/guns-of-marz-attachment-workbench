@@ -2,9 +2,15 @@
 -- Names below are existing GoM ModelScript attachment IDs, not invented pixel positions.
 local P = {
     id = "gom",
-    -- Authored handgun up is negative local Z; rifle up is positive Z.
+    -- All providers share the enlarged frame; compact meshes retain exact margins.
+    modelFraming = {
+        MP5K={down=0.14,up=0.10,minDown=0.11,minUp=0.10,minAspect=0.30},
+        TEC9={down=0.14,up=0.10,minDown=0.11,minUp=0.10,minAspect=0.30},
+    },
+    -- These authored handguns/compact SMGs use negative local Z for up.
     -- Exact model names only, scoped to this visual provider.
     invertedUpModels = {
+        TEC9=true, MP5K=true, MAC10=true,
         M92FS=true, M93R=true, USP=true, DEAGLE=true, HIPOWER=true,
         P226=true, M1911=true, VP70M=true, SW629=true, MP412=true,
         RHINO=true, COLT_SINGLE=true, PYTHON=true, DETECTIVE_38=true,

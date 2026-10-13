@@ -66,7 +66,7 @@ assert.deepEqual(pngSize(path.join(root, 'workshop/preview.png')), { width: 256,
 const workshop = fs.readFileSync(path.join(root, 'workshop/workshop.txt'), 'utf8');
 assert.match(workshop, /^version=1$/m);
 assert.match(workshop, /^title=Guns of Marz: Attachment Workbench$/m);
-assert.match(workshop, /sharedfiles\/filedetails\/\?id=3722134990/);
+assert.match(workshop, /^description=\[h1\]Guns Attachment Workbench : GoM Emre GGS\[\/h1\]$/m);
 assert.doesNotMatch(workshop, /\{PREVIEW_IMAGE_URL\}/);
 assert.match(workshop, /\[h2\]More Project Zomboid Mods by ask13\[\/h2\]/);
 assert.match(workshop, /https:\/\/github\.com\/ppebble\/project-zomboid-modding/);

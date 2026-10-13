@@ -14,12 +14,12 @@ $files += Join-Path $repo 'tests/ui-bootstrap.test.lua'
 $files += Join-Path $repo 'tests/actions-bootstrap.test.lua'
 $files += Join-Path $lua 'shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $lua 'client/GMAW/Actions.lua'
-foreach ($name in @('UI/Profiles/GoM','UI/Profiles/Gael','UI/ProfileRegistry','UI/AttachmentAnchors','UI/LayoutPreferences')) {
+foreach ($name in @('UI/Profiles/GoM','UI/Profiles/Gael','UI/ProfileRegistry','UI/AttachmentAnchors','UI/LayoutPreferences','UI/InstalledModels')) {
     $files += Join-Path $lua "client/GMAW/$name.lua"
 }
 $files += Join-Path $lua 'client/GMAW/Window.lua'
 $files += Join-Path $lua 'server/GMAW/Server.lua'
-foreach ($test in @('layout-preferences','planner','emre-compatibility','provider-matrix','provider-extension','batch','sources','presentation','window','texture-rendering','model-preview','ui-anchor-profiles','authority-bootstrap','authority','server-authority','actions')) { $files += Join-Path $repo "tests/$test.test.lua" }
+foreach ($test in @('layout-preferences','planner','emre-compatibility','provider-matrix','provider-extension','batch','sources','presentation','window','texture-rendering','model-preview','installed-models','ui-anchor-profiles','authority-bootstrap','authority','server-authority','actions')) { $files += Join-Path $repo "tests/$test.test.lua" }
 $files += Join-Path $repo 'tests/legacy-bootstrap.test.lua'
 $files += Join-Path $lua 'shared/GMAW/NativeCompletion.lua'
 $files += Join-Path $lua 'client/GMAW/Actions.lua'

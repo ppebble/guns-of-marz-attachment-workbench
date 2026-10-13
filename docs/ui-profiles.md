@@ -48,8 +48,7 @@ these reference points, so their sling cards remain without a line.
 Only the selected slot draws an orange line; all other cards remain visible and
 clickable. Selecting a merged prerequisite highlights its existing parent card.
 All source and native projection checks are separate from actual in-game render
-verification. The preview still renders the base weapon model, not separately
-composed installed attachment meshes.
+verification. Installed attachment meshes are now composed as described below.
 
 ### GoM handgun up axis
 
@@ -64,6 +63,50 @@ applied to framing and socket projection, preserving the left-facing muzzle.
 Installed current/Legacy mesh-node inspection and native JOML tests confirmed
 the basis; the native projection regression exercises both forward and up signs.
 Actual game rendering after deployment remains a separate check.
+
+### Installed parts and GoM framing (2026-10-13)
+
+The exact GoM authored-up exceptions also include TEC9, MP5K and MAC10;
+MP5 and MP5A2 keep their existing orientation. All providers use reduced vertical
+framing padding, with separate TEC9/MP5K minimum margins. Longitudinal stock and
+barrel clearance remains unchanged. Native mesh
+inspection covered 62 GoM base models and representative long-scope, magazine,
+bipod and closed shotgun-barrel combinations. This is geometric evidence, not
+a live rendering check or a guarantee for every third-party attachment.
+
+`UI/InstalledModels.lua` uses the selected firearm's already-loaded item script
+definitions and currently installed parts. It creates child scene models with
+the native parent/self attachment bindings, inheriting the weapon's fitted
+transform. This includes separately modelled barrels such as STEVENS_555 and
+DOUBLEBARREL. Queued-but-not-installed parts do not change the preview.
+Changing an installed part refreshes the children; changing the same firearm's
+static model refreshes the entire scene. Cleanup removes children before the
+weapon root. Unavailable models cannot remove the base weapon preview.
+
+Loaded definitions are cached; unchanged loadouts do not recreate scene models.
+Rendering still adds work for each displayed child mesh. Exact CPU/GPU frame
+time requires a live benchmark; source tests cannot establish FPS or latency.
+No upstream files/assets are copied and no attachment actions are changed.
+Runtime-only replacements of native weapon-part mappings that are absent from
+loaded script definitions are not exposed through this path; those custom
+provider behaviours require a separate integration.
+
+Run `scripts/test.ps1` for source regressions and
+`scripts/test-installed-models.ps1` for the installed current/Legacy GoM barrel
+definitions through native Item objects and the non-debug Lua bridge. The latter
+verifies metadata access and child-model commands without opening a game client;
+it does not measure GPU rendering or validate the final screenshot.
+
+### Shared rendering contract
+
+GGS, Emre and newly registered weapon providers use the same installed-part
+renderer and enlarged default framing without a visual profile or mod-ID list.
+Visual profiles only override measured model exceptions and supply optional
+leader anchors. Do not copy GoM's rotation exceptions onto another owner's guns.
+The common estimate preserves longitudinal clearance, uses vertical padding
+`max(.14, length*.14)` below and `max(.12, length*.10)` above, and a minimum frame
+height of `length*.30`. These are framing estimates, not mesh bounding boxes.
+Unusual weapons and accessories still need live visual checks for cropping.
 
 `tests/ui-anchor-profiles.test.lua` exercises owner routing, GGS SVD offsets, GoM M4A1 rail aliases, missing/NaN offsets, negative-barrel axis, left-facing muzzle, vertical optic/grip relation, scene cache, and failing native projection. Mock projection alone does not verify actual mesh appearance. `scripts/test.ps1`, `scripts/test-gael.ps1 -Installed`, and `scripts/test-installed.ps1` (current/legacy) verify separate provider/native contracts.
 

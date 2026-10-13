@@ -480,10 +480,17 @@ assert(large.middleWidth > previousMiddle and savedLayout.weaponsCollapsed,
 large:toggleWeapons()
 large:resizeLayout(720,600)
 large.layoutPrefs.middleRatio=0.3; large:layoutChildren()
-assert(large.compactCenter and not large.diagram.visible and large.slots.y==66,
+assert(large.compactCenter and not large.diagram.visible and large.slots.y==74,
     "unreadable nodes are hidden and the original lower slot list fills the center")
-assert(large.slots.y+large.slots.height<=large.diagramDivider.y,
-    "compact mode reserves divider space outside the scrolling slot viewport")
+assert(large.diagramDivider.y==66 and large.diagramDivider.y+large.diagramDivider.height==large.slots.y,
+    "compact mode keeps the reopen grip above the scrolling slot viewport")
+local compactGrip, compactRatio = large.diagramDivider, large.layoutPrefs.diagramRatio
+compactGrip:onMouseDown(10,4); compactGrip.mouseY=4; compactGrip:onMouseMove(0,0)
+assert(large.layoutPrefs.diagramRatio==compactRatio and large.diagramDivider.y==66,
+    "grabbing the compact top grip does not jump the saved split")
+compactGrip.mouseY=24; compactGrip:onMouseMove(0,20); compactGrip:onMouseUp(0,0)
+assert(large.layoutPrefs.diagramRatio>compactRatio,
+    "dragging the compact top grip downward reopens diagram allocation")
 large.layoutPrefs.leftRatio=0.4; large.layoutPrefs.middleRatio=0.8; large:layoutChildren()
 assert(large.weapons.width>=160 and large.slots.width>=200 and large.parts.width>=180,
     "extreme saved ratios retain usable columns at the minimum window size")
@@ -512,6 +519,69 @@ local horizontal=large.diagramDivider
 local oldDiagram=large.layoutPrefs.diagramRatio
 horizontal:onMouseDown(10,4); horizontal.mouseY=-40; horizontal:onMouseMove(0,-44); horizontal:onMouseUp(0,0)
 assert(large.layoutPrefs.diagramRatio<oldDiagram, "horizontal divider changes diagram/list allocation")
+-- Exercise real node geometry around all side-lane and wrapping thresholds.
+-- These calls deliberately render repeatedly between size changes: the chosen
+-- detail candidate must survive rendering, hit testing and stationary relayout.
+local sweepView, sweepText = large.view, getTextManager
+local sparse = {slots={},bySlot={}}
+for _,slot in ipairs({"Scope","LaserRifle","LightRifle","Foregrip","Bipod","Canon","Suppressor"}) do
+    local card={slot=slot}
+    sparse.slots[#sparse.slots+1]=card; sparse.bySlot[slot]=card
+end
+local observedModes = {}
+local function diagramSweep(axis, first, last, step)
+    local previous = nil
+    for size=first,last,step do
+        large.diagram[axis]=size
+        local visible=large:diagramFits()
+        local mode=visible and (large.diagram:cardLayout().details and 2 or 1) or 0
+        observedModes[mode]=true
+        assert(mode==large.diagramModeState.mode,"displayed mode matches selected mode")
+        if step<0 and previous then
+            assert(mode<=previous,"shrinking "..axis.." cannot restore detail at "..size)
+        end
+        if step>0 and previous then
+            assert(mode>=previous,"growing "..axis.." cannot remove detail at "..size)
+        end
+        if visible then
+            local chosen=large.diagram.spatialLayout
+            assert(chosen.width==large.diagram.width and chosen.height==large.diagram.height,
+                "fit decision uses the exact rendered dimensions")
+            for render=1,3 do
+                assert(large.diagram:cardLayout()==chosen and chosen.details==(mode==2),
+                    "rendering preserves the validated detail candidate")
+            end
+        end
+        for stationary=1,3 do
+            assert(large:diagramFits()==visible and large.diagramModeState.mode==mode,
+                "stationary geometry does not oscillate at "..axis.."="..size)
+        end
+        previous=mode
+    end
+end
+for _,font in ipairs({14,22,30}) do
+    getTextManager=function() return {getFontHeight=function() return font end} end
+    for _,view in ipairs({sparse,many}) do
+        large.view=view
+        for _,height in ipairs({254,255,304,305,349,350,480}) do
+            large.diagramModeState=nil
+            large.diagram.width,large.diagram.height=950,height
+            diagramSweep("width",950,200,-2)
+            diagramSweep("width",200,950,2)
+        end
+        for _,width in ipairs({449,450,600,950}) do
+            large.diagramModeState=nil
+            large.diagram.width,large.diagram.height=width,550
+            diagramSweep("height",550,32,-2)
+            diagramSweep("height",32,550,2)
+        end
+    end
+end
+assert(observedModes[0] and observedModes[1] and observedModes[2],
+    "sweeps exercise hidden, labels-only and full-detail rendering")
+large.view, getTextManager = sweepView, sweepText
+large.diagramModeState=nil
+large:layoutChildren()
 large:toggleWeapons()
 large:close()
 Preferences.load=function(_, sw, sh) return Preferences.sanitize(savedLayout,sw,sh) end

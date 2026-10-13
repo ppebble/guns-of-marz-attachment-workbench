@@ -85,7 +85,7 @@ function ISUI3DScene:instantiate()
     local function ppu()
         return self.width/1366*math.exp(13*0.2)*160/1.82
     end
-    self.javaObject={fromLua1=call,fromLua2=call,fromLua3=call,
+    self.javaObject={fromLua1=call,fromLua2=call,fromLua3=call,fromLua4=call,
         -- Installed UI3DScene: Right = Y 90 degrees (Left = 270).
         sceneToUIX=function(_,x,y,z) return self.width/2+z*ppu() end,
         sceneToUIY=function(_,x,y,z) return self.height/2-y*ppu() end}

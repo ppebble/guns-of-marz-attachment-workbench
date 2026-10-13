@@ -9,8 +9,11 @@ dividers to adjust the weapon, center and attachment columns. The horizontal
 center divider changes the preferred balance between the diagram and slot list.
 
 When the center cannot fit readable nodes, the diagram is hidden and the existing
-slot list fills the center. There is no second slot list. Extra space is required
-before switching back to nodes, reducing flicker near the transition. Selection,
+slot list fills the center. There is no second slot list. In list-only mode the
+horizontal grip remains above the list; drag it downward to restore diagram space.
+Detailed nodes, labels-only nodes and list-only mode use actual displayed geometry.
+Shrinking cannot promote a more detailed mode; restoring detail requires extra
+space, preventing repeated mode changes at a resize boundary. Selection,
 pending choices and the work queue stay intact when the layout changes.
 
 Window position, size, divider ratios and the weapon-list collapsed state are

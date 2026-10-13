@@ -12,6 +12,7 @@ local V = require "GMAW/Presentation"
 local UIProfiles = require "GMAW/UI/ProfileRegistry"
 local AttachmentAnchors = require "GMAW/UI/AttachmentAnchors"
 local LayoutPreferences = require "GMAW/UI/LayoutPreferences"
+local InstalledModels = require "GMAW/UI/InstalledModels"
 require "GMAW/Actions"
 -- Do not retain require()'s transient nil during PZ client-script loading.
 local A = GMAWActions
@@ -244,11 +245,13 @@ function W:diagramActiveSlot()
     return prerequisiteTarget[self.activeSlot] or self.activeSlot
 end
 
-function D:cardLayout()
+function D:cardLayout(requestedDetails)
+    if requestedDetails == nil then requestedDetails = self.displayDetails end
     local font=getTextManager():getFontHeight(UIFont.Small)
     local cached=self.spatialLayout
     if cached and cached.view==self.window.view and cached.width==self.width
-        and cached.height==self.height and cached.fontHeight==font then return cached end
+        and cached.height==self.height and cached.fontHeight==font
+        and cached.requestedDetails==requestedDetails then return cached end
     local cards=self.window:diagramCards()
     local upper,lower,left,right={},{},{},{}
     -- Distribute physical end/side parts along the outer edges. When a side
@@ -299,7 +302,8 @@ function D:cardLayout()
     end
     -- Keep full labels and installed-part details whenever possible. A dense
     -- small viewport uses one-line nodes; the full details stay in the lists.
-    for _,detail in ipairs({true,false}) do
+    local detailChoices = requestedDetails == nil and {true,false} or {requestedDetails}
+    for _,detail in ipairs(detailChoices) do
         for _,desiredWidth in ipairs({112,104,92,80,68,54,42}) do
             local spans={split-10,self.width-split-10}
             local columns={math.max(1,math.floor((spans[1]+8)/(desiredWidth+8))),
@@ -330,6 +334,7 @@ function D:cardLayout()
     local gunY=font+10+c.upperRows*(c.cardHeight+12)+math.max(0,math.floor((self.height-used)/2))
     local gunInset=useSides and math.floor(self.width*0.19) or 18
     local l={view=self.window.view,width=self.width,height=self.height,fontHeight=font,
+        requestedDetails=requestedDetails,
         nodes={},details=c.detail,gun={x=gunInset,y=gunY,width=self.width-gunInset*2,height=gunHeight}}
     local function place(group,top,rows,region)
         table.sort(group,function(a,b)
@@ -514,23 +519,23 @@ end
 -- muzzle (Y=.5781) and magazine (Y=.1035): the stock extends behind both.
 -- Reserve conservative rear/up/down silhouette room; do not pretend that
 -- mounting-point bounds are the full geometry of the weapon.
-function D:modelEnvelope(b)
+function D:modelEnvelope(b,framing)
     local length=b.right-b.left
     local rear=math.max(b.hasStock and 0.14 or 0.27,
         length*(b.hasStock and 0.35 or 0.90))
     local front=math.max(0.07,length*0.14)
     local fullLength=length+rear+front
-    local down=math.max(0.11,fullLength*0.24)
-    local up=math.max(0.11,fullLength*0.18)
+    local down=math.max(framing and framing.minDown or 0.14,fullLength*(framing and framing.down or 0.14))
+    local up=math.max(framing and framing.minUp or 0.12,fullLength*(framing and framing.up or 0.10))
     return {left=b.left-rear,right=b.right+front,
         bottom=b.bottom-down,top=b.top+up}
 end
 function D:fitModelPreview(scene)
     local b=scene.frameBounds
     if not b or (scene.fitWidth==scene.width and scene.fitHeight==scene.height) then return end
-    local e=self:modelEnvelope(b)
+    local e=self:modelEnvelope(b,scene.framing)
     local framedWidth=e.right-e.left
-    local framedHeight=math.max(e.top-e.bottom,framedWidth*0.47)
+    local framedHeight=math.max(e.top-e.bottom,framedWidth*(scene.framing and scene.framing.minAspect or 0.30))
     local pixelsPerUnit=scene.width/1366*math.exp(13*0.2)*160/1.82
     local scale=math.min(scene.width*0.86/(framedWidth*pixelsPerUnit),
         scene.height*0.86/(framedHeight*pixelsPerUnit))
@@ -552,20 +557,24 @@ function D:fitModelPreview(scene)
 end
 function D:clearModelPreview()
     if self.modelScene then
+        InstalledModels.clear(self.modelScene)
         pcall(function() self.modelScene.javaObject:fromLua1("removeModel","weapon") end)
         self.modelScene:setVisible(false)
         self:removeChild(self.modelScene)
         self.modelScene=nil
     end
     self.previewGun=nil
+    self.previewModelName=nil
 end
 function D:updateModelPreview(gun,layout)
-    if gun~=self.previewGun then
+    local modelName=gun and gun.getStaticModel and gun:getStaticModel()
+    if gun~=self.previewGun or modelName~=self.previewModelName then
         self:clearModelPreview()
         self.previewGun=gun
+        self.previewModelName=modelName
         if gun and ISUI3DScene and gun.getStaticModel then
             local ok=pcall(function()
-                local name=gun:getStaticModel()
+                local name=modelName
                 if not name or name=="" then return end
                 local script=getScriptManager():getModelScript(name)
                 if not script then return end
@@ -590,6 +599,12 @@ function D:updateModelPreview(gun,layout)
                 j:fromLua1("setZoom",longGun and 13 or 17)
                 j:fromLua2("createModel","weapon",script:getFullType())
                 scene.previewScript=script
+                local profile=UIProfiles.forWeapon(gun)
+                scene.framing=profile and profile.framing
+                local modelId=script:getFullType():match("^MarzGuns%.([^%.]+)$")
+                if profile and profile.modelFraming and modelId then
+                    scene.framing=profile.modelFraming[modelId] or scene.framing
+                end
                 j:fromLua2("setObjectAutoRotate","weapon",false)
                 j:fromLua2("setModelUseWorldAttachment","weapon",false)
                 j:fromLua2("setModelWeaponRotationHack","weapon",false)
@@ -607,11 +622,14 @@ function D:updateModelPreview(gun,layout)
                 scene.frameBounds=framed and bounds or nil
                 self:fitModelPreview(scene)
             end)
-            if not ok then self:clearModelPreview();self.previewGun=gun end
+            if not ok then
+                self:clearModelPreview();self.previewGun=gun;self.previewModelName=modelName
+            end
         end
     end
     local scene=self.modelScene
     if scene then
+        InstalledModels.sync(scene,gun)
         local g=layout.gun
         if scene.x~=g.x then scene:setX(g.x) end
         if scene.y~=g.y then scene:setY(g.y) end
@@ -773,16 +791,8 @@ local function bounds(control, x, y, width, height)
     control:setWidth(math.max(1, width)); control:setHeight(math.max(1, height))
 end
 
--- Evaluate actual font-dependent node geometry, including dense slot sets.
--- Returning from the list requires extra room to avoid boundary flicker.
-function W:diagramFits()
-    local width, height = self.diagram.width, self.diagram.height
-    local margin = self.compactCenter and 24 or 0
-    -- Probe a smaller candidate while compact; requiring spare width AND
-    -- height also stabilizes transitions caused by wrapping into another row.
-    self.diagram.width, self.diagram.height = width - margin, height - margin
-    local layout = self.diagram:cardLayout()
-    self.diagram.width, self.diagram.height = width, height
+-- Validate the exact candidate that rendering and hit testing will use.
+local function readableDiagram(layout)
     if layout.gun.width < 150 or layout.gun.height < 56 then return false end
     for _, node in pairs(layout.nodes) do
         if node.width < math.max(62, layout.fontHeight * 4)
@@ -799,6 +809,70 @@ function W:diagramFits()
         end
     end
     return true
+end
+
+-- Reflow can temporarily fit less well even when both dimensions grow. Keep
+-- the last readable arrangement centered until an equally detailed new one
+-- fits; every hit target and connector moves with the retained gun geometry.
+local function expandedDiagram(previous, width, height)
+    local dx, dy = math.floor((width-previous.width)/2), math.floor((height-previous.height)/2)
+    local layout = {}
+    for key,value in pairs(previous) do layout[key]=value end
+    layout.width, layout.height, layout.nodes, layout.gun = width, height, {}, {}
+    for key,value in pairs(previous.gun) do layout.gun[key]=value end
+    layout.gun.x, layout.gun.y = previous.gun.x+dx, previous.gun.y+dy
+    for index,node in pairs(previous.nodes) do
+        local moved = {}
+        for key,value in pairs(node) do moved[key]=value end
+        for _,key in ipairs({"x","anchorX","edgeX","elbowX"}) do
+            if moved[key] then moved[key]=moved[key]+dx end
+        end
+        for _,key in ipairs({"y","anchorY","edgeY","elbowY"}) do
+            if moved[key] then moved[key]=moved[key]+dy end
+        end
+        layout.nodes[index]=moved
+    end
+    return layout
+end
+
+function W:diagramFits()
+    local d = self.diagram
+    local width, height = d.width, d.height
+    local font = getTextManager():getFontHeight(UIFont.Small)
+    local state = self.diagramModeState
+    if not state or state.view ~= self.view or state.font ~= font then
+        state = {mode=2, width=width, height=height, originWidth=width, originHeight=height,
+            view=self.view, font=font}
+        self.diagramModeState = state
+    end
+    local shrinking = width < state.width or height < state.height
+    if shrinking then
+        state.originWidth, state.originHeight = width, height
+    end
+    -- Never promote detail while space is shrinking, including when the
+    -- side-lane thresholds happen to produce a more efficient arrangement.
+    -- A growing viewport needs 24 actual pixels before promotion is retried;
+    -- probing smaller geometry can select a different, misleading layout.
+    local growing = not shrinking and (width > state.width or height > state.height)
+    local promote = growing and (width >= state.originWidth + 24 or height >= state.originHeight + 24)
+    local maximum = promote and 2 or state.mode
+    local mode, chosen = 0, nil
+    for candidate=maximum,1,-1 do
+        local layout = d:cardLayout(candidate == 2)
+        if layout.details == (candidate == 2) and readableDiagram(layout) then
+            mode, chosen = candidate, layout
+            break
+        end
+    end
+    if not shrinking and mode < state.mode and state.layout then
+        mode, chosen = state.mode, expandedDiagram(state.layout, width, height)
+    end
+    if mode ~= state.mode then state.originWidth, state.originHeight = width, height end
+    state.mode, state.width, state.height = mode, width, height
+    state.layout = chosen
+    d.displayDetails = mode == 2
+    d.spatialLayout = chosen
+    return mode > 0
 end
 
 function W:layoutChildren()
@@ -832,8 +906,8 @@ function W:layoutChildren()
     self.compactCenter = not self:diagramFits()
     self.diagram:setVisible(not self.compactCenter)
     if self.compactCenter then self.diagram:clearModelPreview() end
-    local slotsY = self.compactCenter and 66 or 74 + diagramHeight
-    bounds(self.slots, self.middleX, slotsY, self.middleWidth, bottom - slotsY - (self.compactCenter and 8 or 0))
+    local slotsY = self.compactCenter and 74 or 74 + diagramHeight
+    bounds(self.slots, self.middleX, slotsY, self.middleWidth, bottom - slotsY)
     self.mountHeight = math.min(92, math.floor(self.panelHeight * 0.3))
     self.partsY = 66 + self.mountHeight + 30
     bounds(self.mounts, self.optionsX, 66, self.optionsWidth, self.mountHeight)
@@ -845,8 +919,8 @@ function W:layoutChildren()
     bounds(self.leftDivider, self.middleX - 9, 66, 8, self.panelHeight)
     self.leftDivider:setVisible(not collapsed)
     bounds(self.middleDivider, self.optionsX - 9, 66, 8, self.panelHeight)
-    -- Retain a bottom grip in compact mode to adjust the preferred diagram height.
-    bounds(self.diagramDivider, self.middleX, self.compactCenter and bottom - 8 or 66 + diagramHeight,
+    -- The collapsed upper pane reopens from the same top edge as its list.
+    bounds(self.diagramDivider, self.middleX, self.compactCenter and 66 or 66 + diagramHeight,
         self.middleWidth, 8)
     for _, button in ipairs({self.applyButton,self.refreshButton,self.clearButton,self.resetLayoutButton,self.footerCloseButton}) do
         button:setY(self.height - 42)
@@ -872,6 +946,7 @@ function W:resetLayout()
     local p = self.layoutPrefs
     self:setX(p.x); self:setY(p.y); self:setWidth(p.width); self:setHeight(p.height)
     self.compactCenter = false
+    self.diagramModeState = nil
     self:layoutChildren(); self:saveLayout()
 end
 function W:resizeLayout(width, height)
