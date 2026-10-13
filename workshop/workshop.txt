@@ -1,6 +1,6 @@
 version=1
 id=3798555914
-title=Guns of Marz: Attachment Workbench
+title=[GoM|Emre|GGS] Guns Attachment Workbench
 description=[h1]Guns Attachment Workbench : GoM Emre GGS[/h1]
 description=
 description=[i]Plan your setup first. Then let your survivor install it part by part.[/i]

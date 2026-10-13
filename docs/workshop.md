@@ -1,16 +1,29 @@
 # Guns of Marz: Attachment Workbench — Steam Workshop Description
 
 ```bbcode
-[h1]Guns of Marz: Attachment Workbench[/h1]
+[h1]Guns Attachment Workbench : GoM Emre GGS[/h1]
 
 [i]Plan your setup first. Then let your survivor install it part by part.[/i]
 
-[img]{PREVIEW_IMAGE_URL}[/img]
+[h1]MOD UPDATE[/h1]
+[h2]We also refactored the code to support other gun modes, not just GoM.
+However, many of them have a separate parts installation window provided by the gun mod, so I plan to keep working by leveraging the feature that allows multiple tasks to be performed in areas where many guns are gathered.[/h2]
+
+[h2]Window is now RESIZABLE[/h2]
+
+[h1]Compatibility Notes[/h1]
+
+[list]
+[*]Compatibility with GoM at first.
+[*]Compatibility with emre(+GoM Attachment patch) has now been added.
+[*]Compatibility with GGS has now been added.
+[/list]
 
 [h2]What it does[/h2]
-Guns of Marz: Attachment Workbench adds a dedicated attachment-management window for the firearms and firearm parts introduced by [b]Guns of Marz[/b].
 
 Instead of checking attachments one at a time through separate menus, you can see the available slots, the currently installed parts, and compatible options together in one workbench.
+
+
 
 [h2]Features[/h2]
 [list]
@@ -37,6 +50,9 @@ Instead of checking attachments one at a time through separate menus, you can se
 [h2]Compatibility notes[/h2]
 [list]
 [*]Designed for Project Zomboid Build 42.
+[*]Enable either current Guns of Marz or its bundled Old Version, not both. Gunworks Framework is required.
+[*]Includes workbench access for vanilla firearms overridden by Simple Suppressors, including the M16 and JS shotguns.
+[*]Improvised Silencers integration is included. For Simple Suppressors, use its own context menu if workbench installation is unavailable. GoM visual mappings for its suppressors are not included.
 [*]Works with parts found in the player inventory and nearby storage.
 [*]For multiplayer, install this mod and Guns of Marz on both the server and all clients.
 [/list]
@@ -51,6 +67,7 @@ Please include the firearm name, attachment name, and a screenshot when reportin
 
 [h2]More Project Zomboid Mods by ask13[/h2]
 Browse other focused Build 42 tools and compatibility mods in the [url=https://github.com/ppebble/project-zomboid-modding]Project Zomboid Mods & Tools catalog[/url].
+
 ```
 
 ## Publishing notes (not part of the Workshop description)
