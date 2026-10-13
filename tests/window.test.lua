@@ -32,6 +32,8 @@ getCore=function() return {getScreenWidth=function() return 1920 end,getScreenHe
 W.open(player,gun)
 getCore=originalGetCore
 local w=assert(GMAWWindows[0])
+assert(w.width==1240 and w.height==850,
+    "workbench expands only modestly at desktop resolution")
 assert(w.weapons.width>0 and w.slots.width>0 and w.mounts.width>0 and w.parts.width>0)
 assert(w.searchEntry.y < w.weapons.y and w.searchEntry.placeholder == "Search")
 assert(w.screwdriver and w.screwdriver.item==screwdriver and w.wrench==nil,
@@ -83,7 +85,9 @@ local function checkDiagram(window)
         local x,y,width,height = d:cardRect(index, layout)
         assert(x, "every supported attachment visible immediately: "..card.slot)
         if x then
-            assert(x >= 0 and y >= 0 and x + width <= d.width and y + height <= d.height)
+            assert(x >= 0 and y >= 0 and x + width <= d.width and y + height <= d.height,
+                string.format("out of panel %s at %.1f,%.1f size %.1fx%.1f panel %dx%d",
+                    card.slot,x,y,width,height,d.width,d.height))
             assert(height >= layout.fontHeight + 6)
             assert(x+width<=layout.gun.x or x>=layout.gun.x+layout.gun.width
                 or y + height <= layout.gun.y or y >= layout.gun.y + layout.gun.height,
@@ -122,10 +126,67 @@ for _,slot in ipairs({"Scope","Stock","RailUp","Canon","LaserRifle","Foregrip","
 end
 w.view=spatial
 local geometry=checkDiagram(w)
+-- Only the selected card draws a leader; other cards remain clickable.
+-- The former 5x5 orange marker must never return: it suggested exact
+-- attachment coordinates that the model data cannot always provide.
+w.activeSlot="Scope"
+-- Shared attachment rules do not imply shared geometry. Emre without its
+-- own visual profile must draw no lines, even for the selected card.
+local formerOwner=gun.getModID
+gun.getModID=function() return "EmreFirearmsPack_B42" end
+w.diagram.draws={}
+w.diagram:prerender()
+local selectedLeaders,mutedLeaders=0,0
+for _,draw in ipairs(w.diagram.draws) do
+    if draw.alpha==0.62 then selectedLeaders=selectedLeaders+1 end
+    if draw.alpha==0.34 then mutedLeaders=mutedLeaders+1 end
+    if draw.x and draw.width==5 and draw.height==5 then
+        for _,node in pairs(geometry.nodes) do
+            assert(not(draw.x==node.anchorX-2 and draw.y==node.anchorY-2),
+                "an approximate anchor must not draw a square endpoint marker")
+        end
+    end
+    if (draw.alpha==0.62 or draw.alpha==0.34) and draw.width==1 and draw.height==1 then
+        error("zero-length connector must not draw a 1-pixel dot")
+    end
+end
+assert(selectedLeaders==0 and mutedLeaders==0,
+    "unprofiled Emre draws neither selected nor unselected placeholder leaders")
+gun.getModID=formerOwner
+w.diagram.draws={}
+w.diagram:prerender()
+for _,draw in ipairs(w.diagram.draws) do
+    assert(draw.alpha~=0.62 and draw.alpha~=0.34,
+        "GoM with no model attachment coordinates omits old fake leaders")
+end
+local nodesBySlot={}
+for i,card in ipairs(w:diagramCards()) do nodesBySlot[card.slot]=geometry.nodes[i] end
+assert(nodesBySlot.Stock.side=="right" and nodesBySlot.Canon.side=="left",
+    "only rear and muzzle cards occupy the physical ends")
+for _,slot in ipairs({"LaserRifle","LightRifle"}) do
+    local n=nodesBySlot[slot]
+    assert(n.top and not n.side and n.x+n.width<=w.diagram.width*0.45,
+        "laser and light stay above the front barrel, never at the stock")
+end
+assert(nodesBySlot.Bipod.anchorX < nodesBySlot.Foregrip.anchorX
+    and nodesBySlot.Foregrip.anchorX < nodesBySlot.Scope.anchorX,
+    "top/bottom attachment anchors are horizontally reversed with the firearm")
+assert(nodesBySlot.Scope.top
+    and not nodesBySlot.Foregrip.top and not nodesBySlot.Bipod.top,
+    "optics stay above while grip and bipod stay below")
+for slot,node in pairs(nodesBySlot) do
+    if node.side=="left" then
+        assert(node.edgeX < node.elbowX and node.elbowX < node.anchorX,
+            "left-side connector is reflected with its card: "..slot)
+    elseif node.side=="right" then
+        assert(node.anchorX < node.elbowX and node.elbowX < node.edgeX,
+            "right-side connector is reflected with its card: "..slot)
+    end
+end
 local emitted={}
 for index,card in ipairs(w:diagramCards()) do
     local n=assert(geometry.nodes[index], "all eight main roles visible: "..card.slot)
-    if card.slot=="LightRifle" or card.slot=="Foregrip" or card.slot=="Bipod" then assert(not n.top) end
+    if card.slot=="Foregrip" or card.slot=="Bipod" then assert(not n.top) end
     emitted[#emitted+1]=string.format('{"slot":"%s","x":%d,"y":%d,"width":%d,"height":%d,"anchorX":%d,"anchorY":%d,"elbowY":%d,"top":%s}',
         card.slot,n.x,n.y,n.width,n.height,n.anchorX,n.anchorY,n.elbowY or n.anchorY,tostring(n.top==true))
 end
@@ -140,6 +201,24 @@ for _,point in ipairs(quad) do quadText[#quadText+1]=string.format('{"x":%.1f,"y
 local g=geometry.gun
 GMAWTestGeometryJSON=string.format('{"width":%d,"height":%d,"gun":{"x":%d,"y":%d,"width":%d,"height":%d},"nodes":[%s],"textureQuad":[%s]}',
     w.diagram.width,w.diagram.height,g.x,g.y,g.width,g.height,table.concat(emitted,','),table.concat(quadText,','))
+-- Reproduce the user's seven-node Emre/GoM screenshot, including both muzzle slots.
+local emreScene={slots={},bySlot={}}
+for _,slot in ipairs({"Scope","Canon","Suppressor","Bipod","Foregrip","LaserRifle","LightRifle"}) do
+    local card={slot=slot}
+    emreScene.slots[#emreScene.slots+1]=card;emreScene.bySlot[slot]=card
+end
+w.view=emreScene
+local emreLayout=checkDiagram(w)
+local emreNodes={}
+for i,card in ipairs(w:diagramCards()) do emreNodes[card.slot]=emreLayout.nodes[i] end
+assert(emreNodes.Scope.top and emreNodes.LaserRifle.top and emreNodes.LightRifle.top
+    and emreNodes.LightRifle.x+emreNodes.LightRifle.width<emreNodes.Scope.x,
+    "front accessories stay above the barrel, separate from the central optics")
+assert(emreNodes.Canon.side=="left" and emreNodes.Suppressor.side=="left",
+    "muzzle cards retain the left edge")
+assert(not emreNodes.Foregrip.top and not emreNodes.Bipod.top
+    and not emreNodes.Foregrip.side and not emreNodes.Bipod.side,
+    "only physically lower-mounted grip and bipod remain underneath")
 local svd={slots={},bySlot={}}
 for _,slot in ipairs({"Barrel_Shroud","Canon","Clip","Grip","Handguard","L_Scope","Laser","Light","Misc","Mount","Scope","Sling","Stock"}) do
     local card={slot=slot};svd.slots[#svd.slots+1]=card;svd.bySlot[slot]=card
@@ -166,11 +245,48 @@ GMAWTestGeometryJSON=string.format('{"width":%d,"height":%d,"gun":{"x":%d,"y":%d
     w.diagram.width,w.diagram.height,svdGun.x,svdGun.y,svdGun.width,svdGun.height,table.concat(svdNodes,','),table.concat(svdQuadText,','))
 local sides=0
 for _,node in pairs(svdLayout.nodes) do if node.side then sides=sides+1 end end
-assert(sides>=3, "muzzle, shroud and sling occupy side spaces beside the weapon")
+assert(sides==4, "GGS keeps muzzle, stock, sling and misc at the edges")
+for index,card in ipairs(w:diagramCards()) do
+    local node=svdLayout.nodes[index]
+    if card.slot=="Laser" or card.slot=="Light" or card.slot=="Handguard"
+        or card.slot=="Barrel_Shroud" then
+        assert(not node.side and node.x+node.width<=w.diagram.width*0.45,
+            "dense GGS front accessories remain in the front region: "..card.slot)
+        assert(node.top==(card.slot=="Laser" or card.slot=="Light"),
+            "front electronics above, barrel furniture below")
+    end
+end
 for _,card in ipairs(svd.slots) do
     w.activeSlot=card.slot
     assert(w.diagram:cardLayout()==svdLayout,"SVD selection never changes geometry: "..card.slot)
 end
+-- The user's vz.58 plus denser provider sets: resizing must never send
+-- front accessories to the stock side or create overlapping click targets.
+local vz58={slots={},bySlot={}}
+for _,slot in ipairs({"Canon","Light","Handguard","Barrel_Shroud","L_Scope",
+    "Scope","Stock","Laser","Sling","Grip"}) do
+    local card={slot=slot};vz58.slots[#vz58.slots+1]=card;vz58.bySlot[slot]=card
+end
+local oldWidth,oldHeight=w.diagram.width,w.diagram.height
+for _,view in ipairs({vz58,svd,emreScene,many}) do
+    w.view=view
+    for _,size in ipairs({{300,375},{450,305},{624,375},{800,375}}) do
+        w.diagram.width,w.diagram.height=size[1],size[2]
+        local layout=checkDiagram(w)
+        for i,card in ipairs(w:diagramCards()) do
+            if card.slot=="Laser" or card.slot=="LaserRifle"
+                or card.slot=="Light" or card.slot=="LightRifle"
+                or card.slot=="Handguard" or card.slot=="Barrel_Shroud"
+                or card.slot=="Bipod" then
+                local n=layout.nodes[i]
+                assert(not n.side and n.x+n.width<=size[1]*0.45,
+                    "front cards wrap within their region on resize: "..card.slot)
+            end
+        end
+    end
+end
+w.diagram.width,w.diagram.height=oldWidth,oldHeight
+w.view=svd
 w.activeSlot="Mount"
 assert(w:diagramActiveSlot()=="Scope", "mount selection highlights existing scope group")
 w.activeSlot="RailUp"

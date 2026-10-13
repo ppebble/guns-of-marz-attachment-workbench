@@ -123,6 +123,10 @@ function G.register(adapters)
         owner=G.id, requires={G.id}, attachmentSystem=G.attachmentSystem, slots=slots,
         compatible=function(part, weapon) return G.acceptsWeapon(weapon) and G.selectable(part) end,
         canAttach=G.canAttach, canDetach=G.canDetach,
+        canPlanAttach=function(part, player, weapon)
+            return G.acceptsWeapon(weapon) and G.selectable(part) and part:canAttach(player, weapon)
+        end,
+        toolKey=function() return "Screwdriver" end,
         tools=function() return {{ItemTag.SCREWDRIVER}} end,
         action=function(player, weapon, part, removing)
             local framework = require "GMAW/Framework"
