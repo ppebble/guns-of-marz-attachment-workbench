@@ -451,7 +451,94 @@ for _,draw in ipairs(large.diagram.draws) do
     assert(draw.y >= 0 and draw.y + (draw.height or 22) <= large.diagram.height,
         "large-font diagram rendering stays inside its panel")
 end
+-- Resizing and pane changes operate on existing controls, preserving work.
+local Preferences = require "GMAW/UI/LayoutPreferences"
+local originalSave, originalLoad = Preferences.save, Preferences.load
+local savedLayout, saves = nil, 0
+Preferences.save = function(_, prefs)
+    savedLayout = {}
+    for key,value in pairs(prefs) do savedLayout[key] = value end
+    saves = saves + 1
+end
+getCore=function() return {getScreenWidth=function() return 1920 end,getScreenHeight=function() return 1080 end} end
+getTextManager = savedTextManager
+large:resetLayout()
+assert(large.resizable and not large.layoutPrefs.weaponsCollapsed and large.weapons.visible,
+    "default/reset layout enables resizing and expands the weapon list")
+assert(large.resizeWidget.resizeFunction==W.resizeLayout and large.resizeWidget2.resizeFunction==W.resizeLayout
+    and large.weaponToggle.target==large and large.weaponToggle.onclick==W.toggleWeapons
+    and large.resetLayoutButton.onclick==W.resetLayout, "native resize grips and buttons are wired to layout actions")
+local originalSlots, originalSearch, originalCart = large.slots, large.searchEntry, large.cart
+large.activeSlot="Scope"; large.slots.selected=2; large.slots:setYScroll(-74)
+large.searchEntry.text="saved filter"
+local previousMiddle = large.middleWidth
+large:toggleWeapons()
+assert(not large.weapons.visible and not large.searchEntry.visible and large.weaponToggle.visible ~= false,
+    "collapsed weapon list retains a reopen control")
+assert(large.middleWidth > previousMiddle and savedLayout.weaponsCollapsed,
+    "collapsing reclaims width and saves the user choice")
+large:toggleWeapons()
+large:resizeLayout(720,600)
+large.layoutPrefs.middleRatio=0.3; large:layoutChildren()
+assert(large.compactCenter and not large.diagram.visible and large.slots.y==66,
+    "unreadable nodes are hidden and the original lower slot list fills the center")
+assert(large.slots.y+large.slots.height<=large.diagramDivider.y,
+    "compact mode reserves divider space outside the scrolling slot viewport")
+large.layoutPrefs.leftRatio=0.4; large.layoutPrefs.middleRatio=0.8; large:layoutChildren()
+assert(large.weapons.width>=160 and large.slots.width>=200 and large.parts.width>=180,
+    "extreme saved ratios retain usable columns at the minimum window size")
+large.layoutPrefs.leftRatio=0.23; large.layoutPrefs.middleRatio=0.3; large:layoutChildren()
+for i=1,5 do large:layoutChildren(); assert(large.compactCenter,"unchanged compact geometry never oscillates") end
+assert(large.slots==originalSlots and large.searchEntry==originalSearch and large.cart==originalCart
+    and large.activeSlot=="Scope" and large.slots.selected==2 and large.slots:getYScroll()==-74
+    and large.searchEntry.text=="saved filter", "layout changes preserve controls, selection, scroll and search")
+large.layoutPrefs.middleRatio=0.75
+large:resizeLayout(1500,950)
+assert(not large.compactCenter and large.diagram.visible and large.slots.y>large.diagram.y,
+    "spacious layout restores the diagram without replacing the slot list")
+local divider=large.leftDivider
+local oldRatio=large.layoutPrefs.leftRatio
+divider:onMouseDown(4,10); divider.mouseX=80; divider:onMouseMoveOutside(76,0)
+assert(divider.capture and large.layoutPrefs.leftRatio>oldRatio,
+    "divider captures a drag and changes the panel width outside its grip")
+divider:onMouseUpOutside(80,10)
+assert(not divider.capture and savedLayout.leftRatio==large.layoutPrefs.leftRatio,
+    "releasing outside saves the panel split and releases capture")
+local middle=large.middleDivider
+local oldMiddle=large.layoutPrefs.middleRatio
+middle:onMouseDown(4,10); middle.mouseX=-60; middle:onMouseMove(-64,0); middle:onMouseUp(0,0)
+assert(large.layoutPrefs.middleRatio<oldMiddle, "middle divider adjusts central and options widths")
+local horizontal=large.diagramDivider
+local oldDiagram=large.layoutPrefs.diagramRatio
+horizontal:onMouseDown(10,4); horizontal.mouseY=-40; horizontal:onMouseMove(0,-44); horizontal:onMouseUp(0,0)
+assert(large.layoutPrefs.diagramRatio<oldDiagram, "horizontal divider changes diagram/list allocation")
+large:toggleWeapons()
 large:close()
+Preferences.load=function(_, sw, sh) return Preferences.sanitize(savedLayout,sw,sh) end
+local nativeCreateChildren=ISCollapsableWindow.createChildren
+local titlebarClose={x=1,y=1}
+ISCollapsableWindow.createChildren=function(window)
+    nativeCreateChildren(window)
+    window.closeButton=titlebarClose
+end
+W.open(player,gun)
+ISCollapsableWindow.createChildren=nativeCreateChildren
+local restored=GMAWWindows[0]
+assert(restored.closeButton==titlebarClose and restored.footerCloseButton~=titlebarClose
+    and titlebarClose.x==1 and titlebarClose.y==1,
+    "footer layout preserves the native titlebar close button and its position")
+assert(restored.layoutPrefs.weaponsCollapsed and not restored.weapons.visible
+    and restored.width==savedLayout.width and restored.height==savedLayout.height,
+    "next opening restores the saved local layout and collapse choice")
+restored:setX(80); restored:setY(60)
+for frame=1,30 do restored:update() end
+assert(savedLayout.x==80 and savedLayout.y==60, "moving an open window saves its position after a quiet interval")
+restored:resetLayout()
+assert(restored.weapons.visible and restored.layoutPrefs.leftRatio==0.23,
+    "reset restores default panel proportions and expanded weapons")
+restored:close()
+Preferences.save, Preferences.load = originalSave, originalLoad
+getCore=originalGetCore
 getTextManager = savedTextManager
 getSpecificPlayer = oldSpecificPlayer
 M.supported,M.canOpen,M.candidates,M.toolKey,S.scan=saved.supported,saved.canOpen,saved.candidates,saved.toolKey,saved.scan

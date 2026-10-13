@@ -14,6 +14,13 @@ function UI:setX(v) self.x=v end
 function UI:setY(v) self.y=v end
 function UI:setWidth(v) self.width=v end
 function UI:setHeight(v) self.height=v end
+function UI:getX() return self.x end
+function UI:getY() return self.y end
+function UI:getWidth() return self.width end
+function UI:getHeight() return self.height end
+function UI:setCapture(value) self.capture=value end
+function UI:setTitle(value) self.title=value end
+function UI:onResize() end
 function UI:addToUIManager() if not self.created then self.created=true; self:createChildren() end end
 function UI:removeFromUIManager() end
 function UI:setVisible(value) self.visible=value end
@@ -49,6 +56,15 @@ end
 function UI:prerender() end
 function UI:update() end
 ISCollapsableWindow=UI:derive(); ISScrollingListBox=UI:derive(); ISButton=UI:derive(); ISPanel=UI:derive()
+function ISCollapsableWindow:createChildren()
+    self.resizeWidget={target=self}
+    self.resizeWidget2={target=self}
+end
+function ISButton:new(x,y,width,height,title,target,callback)
+    local button=UI.new(self,x,y,width,height)
+    button.title,button.target,button.onclick=title,target,callback
+    return button
+end
 ISTextEntryBox=UI:derive()
 function ISTextEntryBox:new(text,x,y,width,height)
     local box=UI.new(self,x,y,width,height); box.text=text; return box

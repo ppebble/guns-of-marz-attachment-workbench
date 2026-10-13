@@ -26,7 +26,7 @@ foreach ($name in @('Framework','Providers/GoM','Providers/Gael','Adapters','Att
     $files += "$lua/shared/GMAW/$name.lua"
 }
 $files += "$lua/client/GMAW/Actions.lua"
-foreach ($name in @('UI/Profiles/GoM','UI/Profiles/Gael','UI/ProfileRegistry','UI/AttachmentAnchors')) {
+foreach ($name in @('UI/Profiles/GoM','UI/Profiles/Gael','UI/ProfileRegistry','UI/AttachmentAnchors','UI/LayoutPreferences')) {
     $files += "$lua/client/GMAW/$name.lua"
 }
 $files += "$lua/client/GMAW/Window.lua"

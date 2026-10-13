@@ -1,4 +1,8 @@
 {
+    "IGUI_GMAW_HideWeapons": "무기 목록 접기",
+    "IGUI_GMAW_ShowWeapons": "무기 목록 펼치기",
+    "IGUI_GMAW_ResetLayout": "배치 초기화",
+    "IGUI_GMAW_ResizePanels": "드래그하여 패널 크기 조절",
     "IGUI_GMAW_Screwdriver": "도구: 소지품 안의 정상 드라이버가 필요합니다.",
     "IGUI_GMAW_Wrench": "도구: 소지품 안의 정상 렌치 또는 파이프 렌치가 필요합니다.",
     "IGUI_GMAW_BothTools": "도구: 소지품 안의 정상 드라이버와 렌치/파이프 렌치가 모두 필요합니다.",

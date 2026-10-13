@@ -11,12 +11,14 @@ local S = require "GMAW/Sources"
 local V = require "GMAW/Presentation"
 local UIProfiles = require "GMAW/UI/ProfileRegistry"
 local AttachmentAnchors = require "GMAW/UI/AttachmentAnchors"
+local LayoutPreferences = require "GMAW/UI/LayoutPreferences"
 require "GMAW/Actions"
 -- Do not retain require()'s transient nil during PZ client-script loading.
 local A = GMAWActions
 local W = ISCollapsableWindow:derive("GMAWWindow")
 local T = ISToolTipInv:derive("GMAWItemTooltip")
 local D = ISPanel:derive("GMAWWeaponDiagram")
+local Divider = ISPanel:derive("GMAWDivider")
 GMAWWindows = GMAWWindows or {}
 local function tr(key) return getText("IGUI_GMAW_" .. key) end
 
@@ -724,8 +726,168 @@ function D:onMouseDown(x,y)
     return false
 end
 
+function Divider:onMouseDown(x, y)
+    self.dragging = true
+    self.downX, self.downY = self.x + x, self.y + y
+    local w = self.window
+    self.startRatio = self.axis == "left" and w.leftWidth / (w.width - 40)
+        or self.axis == "middle" and w.middleWidth / (w.width - w.middleX - 20) or w.layoutPrefs.diagramRatio
+    self:setCapture(true)
+    return true
+end
+function Divider:onMouseMove(dx, dy)
+    if not self.dragging then return end
+    local w, prefs = self.window, self.window.layoutPrefs
+    if self.axis == "left" then
+        prefs.leftRatio = self.startRatio + (self.x + self:getMouseX() - self.downX) / (w.width - 40)
+    elseif self.axis == "middle" then
+        prefs.middleRatio = self.startRatio + (self.x + self:getMouseX() - self.downX) / (w.width - w.middleX - 20)
+    else
+        prefs.diagramRatio = self.startRatio + (self.y + self:getMouseY() - self.downY) / w.panelHeight
+    end
+    w.layoutPrefs = LayoutPreferences.sanitize(prefs, getCore():getScreenWidth(), getCore():getScreenHeight())
+    w:layoutChildren()
+    w.layoutSaveFrames = 30
+    return true
+end
+Divider.onMouseMoveOutside = Divider.onMouseMove
+function Divider:onMouseUp(x, y)
+    if not self.dragging then return end
+    self.dragging = false
+    self:setCapture(false)
+    self.window:saveLayout()
+    return true
+end
+Divider.onMouseUpOutside = Divider.onMouseUp
+function Divider:prerender()
+    local shade = self.dragging and 0.8 or 0.4
+    if self.axis == "diagram" then
+        self:drawRect(0, math.floor(self.height / 2), self.width, 2, 0.8, shade, shade, shade)
+    else
+        self:drawRect(math.floor(self.width / 2), 0, 2, self.height, 0.8, shade, shade, shade)
+    end
+end
+
+local function bounds(control, x, y, width, height)
+    control:setX(x); control:setY(y)
+    control:setWidth(math.max(1, width)); control:setHeight(math.max(1, height))
+end
+
+-- Evaluate actual font-dependent node geometry, including dense slot sets.
+-- Returning from the list requires extra room to avoid boundary flicker.
+function W:diagramFits()
+    local width, height = self.diagram.width, self.diagram.height
+    local margin = self.compactCenter and 24 or 0
+    -- Probe a smaller candidate while compact; requiring spare width AND
+    -- height also stabilizes transitions caused by wrapping into another row.
+    self.diagram.width, self.diagram.height = width - margin, height - margin
+    local layout = self.diagram:cardLayout()
+    self.diagram.width, self.diagram.height = width, height
+    if layout.gun.width < 150 or layout.gun.height < 56 then return false end
+    for _, node in pairs(layout.nodes) do
+        if node.width < math.max(62, layout.fontHeight * 4)
+            or node.height < layout.fontHeight + 6
+            or node.x < 0 or node.y < 0
+            or node.x + node.width > layout.width
+            or node.y + node.height > layout.height then return false end
+        local gun = layout.gun
+        if node.x < gun.x + gun.width and gun.x < node.x + node.width
+            and node.y < gun.y + gun.height and gun.y < node.y + node.height then return false end
+        for _, other in pairs(layout.nodes) do
+            if other ~= node and node.x < other.x + other.width and other.x < node.x + node.width
+                and node.y < other.y + other.height and other.y < node.y + node.height then return false end
+        end
+    end
+    return true
+end
+
+function W:layoutChildren()
+    if not self.slots then return end
+    local prefs, usable = self.layoutPrefs, self.width - 40
+    local collapsed = prefs.weaponsCollapsed
+    self.leftWidth = collapsed and 24 or math.floor(math.max(160, math.min(usable - 380, usable * prefs.leftRatio)))
+    self.middleX = 20 + self.leftWidth
+    local remaining = self.width - self.middleX - 20
+    self.middleWidth = math.floor(math.max(200, math.min(remaining - 180, remaining * prefs.middleRatio)))
+    self.optionsX = self.middleX + self.middleWidth + 10
+    self.optionsWidth = self.width - self.optionsX - 10
+    self.toolFontHeight = getTextManager():getFontHeight(UIFont.Small)
+    self.toolBoxSize = math.max(48, self.toolFontHeight * 2 + 12)
+    self.cartY = self.height - 146
+    self.cartLabelY = self.cartY - self.toolFontHeight - 4
+    self.toolY = self.cartLabelY - self.toolBoxSize - 8
+    self.toolLabelY = self.toolY - self.toolFontHeight - 6
+    self.statusY = self.toolLabelY - self.toolFontHeight - 8
+    local bottom = self.statusY - 8
+    self.panelHeight = math.max(48, bottom - 66)
+    local diagramHeight = math.max(32, math.min(self.panelHeight - 56,
+        math.floor(self.panelHeight * prefs.diagramRatio)))
+    bounds(self.searchEntry, 10, 66, self.leftWidth, 26)
+    bounds(self.weapons, 10, 99, self.leftWidth, bottom - 99)
+    self.searchEntry:setVisible(not collapsed); self.weapons:setVisible(not collapsed)
+    if collapsed and self.weapons.tooltipUI then
+        self.weapons.tooltipUI:setVisible(false); self.weapons.tooltipUI:removeFromUIManager()
+    end
+    bounds(self.diagram, self.middleX, 66, self.middleWidth, diagramHeight)
+    self.compactCenter = not self:diagramFits()
+    self.diagram:setVisible(not self.compactCenter)
+    if self.compactCenter then self.diagram:clearModelPreview() end
+    local slotsY = self.compactCenter and 66 or 74 + diagramHeight
+    bounds(self.slots, self.middleX, slotsY, self.middleWidth, bottom - slotsY - (self.compactCenter and 8 or 0))
+    self.mountHeight = math.min(92, math.floor(self.panelHeight * 0.3))
+    self.partsY = 66 + self.mountHeight + 30
+    bounds(self.mounts, self.optionsX, 66, self.optionsWidth, self.mountHeight)
+    bounds(self.parts, self.optionsX, self.partsY, self.optionsWidth, bottom - self.partsY)
+    bounds(self.cart, 10, self.cartY, self.width - 20, 100)
+    bounds(self.weaponToggle, 10, 38, 24, 24)
+    self.weaponToggle:setTitle(collapsed and ">" or "<")
+    self.weaponToggle.tooltip = tr(collapsed and "ShowWeapons" or "HideWeapons")
+    bounds(self.leftDivider, self.middleX - 9, 66, 8, self.panelHeight)
+    self.leftDivider:setVisible(not collapsed)
+    bounds(self.middleDivider, self.optionsX - 9, 66, 8, self.panelHeight)
+    -- Retain a bottom grip in compact mode to adjust the preferred diagram height.
+    bounds(self.diagramDivider, self.middleX, self.compactCenter and bottom - 8 or 66 + diagramHeight,
+        self.middleWidth, 8)
+    for _, button in ipairs({self.applyButton,self.refreshButton,self.clearButton,self.resetLayoutButton,self.footerCloseButton}) do
+        button:setY(self.height - 42)
+    end
+    self.footerCloseButton:setX(self.width - 130)
+    self.layoutWidth, self.layoutHeight, self.layoutView = self.width, self.height, self.view
+    self.layoutFont = self.toolFontHeight
+end
+
+function W:saveLayout()
+    local p = self.layoutPrefs
+    p.x, p.y, p.width, p.height = self.x, self.y, self.width, self.height
+    LayoutPreferences.save(self.player:getPlayerNum(), p)
+    self.layoutX, self.layoutY = self.x, self.y
+    self.layoutSaveFrames = nil
+end
+function W:toggleWeapons()
+    self.layoutPrefs.weaponsCollapsed = not self.layoutPrefs.weaponsCollapsed
+    self:layoutChildren(); self:saveLayout()
+end
+function W:resetLayout()
+    self.layoutPrefs = LayoutPreferences.defaults(getCore():getScreenWidth(), getCore():getScreenHeight())
+    local p = self.layoutPrefs
+    self:setX(p.x); self:setY(p.y); self:setWidth(p.width); self:setHeight(p.height)
+    self.compactCenter = false
+    self:layoutChildren(); self:saveLayout()
+end
+function W:resizeLayout(width, height)
+    local values = {}
+    for key,value in pairs(self.layoutPrefs) do values[key] = value end
+    values.x, values.y, values.width, values.height = self.x, self.y, width, height
+    values = LayoutPreferences.sanitize(values, getCore():getScreenWidth(), getCore():getScreenHeight())
+    self:setX(values.x); self:setY(values.y)
+    self:setWidth(values.width); self:setHeight(values.height)
+    self:layoutChildren()
+    self.layoutSaveFrames = 30
+end
+
 function W:createChildren()
     ISCollapsableWindow.createChildren(self)
+    self.layoutPrefs = self.layoutPrefs or LayoutPreferences.defaults(getCore():getScreenWidth(), getCore():getScreenHeight())
     local function list(x, y, width, height, rowHeight, draw)
         local box = ISScrollingListBox:new(x, y, width, height)
         box:initialise(); box:instantiate()
@@ -800,8 +962,20 @@ function W:createChildren()
     self.applyButton = button(10, 150, "Apply", W.apply)
     self.refreshButton = button(170, 120, "Refresh", W.reload)
     self.clearButton = button(300, 120, "Clear", W.clear)
-    button(self.width - 130, 120, "Close", W.close)
+    self.footerCloseButton = button(self.width - 130, 120, "Close", W.close)
+    self.resetLayoutButton = button(430, 140, "ResetLayout", W.resetLayout)
+    self.weaponToggle = button(10, 24, "HideWeapons", W.toggleWeapons)
+    local function divider(axis)
+        local d = Divider:new(0, 0, 8, 8)
+        d.window, d.axis, d.tooltip = self, axis, tr("ResizePanels")
+        d:initialise(); d:instantiate(); self:addChild(d)
+        return d
+    end
+    self.leftDivider, self.middleDivider, self.diagramDivider = divider("left"), divider("middle"), divider("diagram")
+    if self.resizeWidget then self.resizeWidget.resizeFunction = W.resizeLayout end
+    if self.resizeWidget2 then self.resizeWidget2.resizeFunction = W.resizeLayout end
     self:reload()
+    self:layoutChildren()
 end
 
 function W:refreshTools(scan)
@@ -981,6 +1155,19 @@ end
 
 function W:update()
     ISCollapsableWindow.update(self)
+    if self.layoutX ~= self.x or self.layoutY ~= self.y then
+        self.layoutX, self.layoutY = self.x, self.y
+        self.layoutSaveFrames = 30
+    end
+    if self.layoutWidth ~= self.width or self.layoutHeight ~= self.height or self.layoutView ~= self.view
+        or self.layoutFont ~= getTextManager():getFontHeight(UIFont.Small) then
+        self:layoutChildren()
+        self.layoutSaveFrames = 30
+    end
+    if self.layoutSaveFrames then
+        self.layoutSaveFrames = self.layoutSaveFrames - 1
+        if self.layoutSaveFrames <= 0 then self:saveLayout() end
+    end
     self.toolRefreshFrames = (self.toolRefreshFrames or 0) + 1
     if self.toolRefreshFrames >= 30 then
         self.toolRefreshFrames = 0
@@ -1027,7 +1214,9 @@ end
 
 function W:prerender()
     ISCollapsableWindow.prerender(self)
-    self:drawText(tr("Weapons"), 10, 42, 1, 1, 1, 1, UIFont.Small)
+    if not self.layoutPrefs.weaponsCollapsed then
+        self:drawText(fit(tr("Weapons"), self.leftWidth - 32), 40, 42, 1, 1, 1, 1, UIFont.Small)
+    end
     self:drawText(tr("Slots"), self.middleX, 42, 1, 1, 1, 1, UIFont.Small)
     self:drawText(fit(tr("Mounts"), self.mounts.width), self.optionsX, 42, 1, 1, 1, 1, UIFont.Small)
     local label = self.activeSlot and tr("Slot_" .. self.activeSlot) or tr("Options")
@@ -1041,6 +1230,7 @@ function W:prerender()
 end
 
 function W:close()
+    self:saveLayout()
     self.diagram:clearModelPreview()
     for _, list in ipairs({self.weapons, self.slots, self.mounts, self.parts, self.cart}) do
         if list.tooltipUI then list.tooltipUI:setVisible(false); list.tooltipUI:removeFromUIManager() end
@@ -1052,11 +1242,13 @@ end
 function W.open(player, weapon)
     local number = player:getPlayerNum()
     if GMAWWindows[number] then GMAWWindows[number]:close() end
-    local width = math.min(1240, getCore():getScreenWidth() - 30)
-    local height = math.min(850, getCore():getScreenHeight() - 40)
-    local o = W:new(15, 20, width, height)
+    local sw, sh = getCore():getScreenWidth(), getCore():getScreenHeight()
+    local prefs = LayoutPreferences.load(number, sw, sh)
+    local o = W:new(prefs.x, prefs.y, prefs.width, prefs.height)
+    o.layoutPrefs = prefs
+    o.minimumWidth, o.minimumHeight = math.min(720, sw - 30), math.min(600, sh - 40)
     o.player, o.initialID = player, weapon:getID()
-    o.title, o.resizable = tr("Title"), false
+    o.title, o.resizable = tr("Title"), true
     o:initialise(); o:addToUIManager()
     GMAWWindows[number] = o
 end
