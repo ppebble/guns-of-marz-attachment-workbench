@@ -58,6 +58,20 @@ function G.removable(part, weapon)
         and not Framework.Required.IsRemovalBlocked(weapon, fullType)
 end
 
+function G.permanent(part)
+    return Framework.Permanent.IsPermanent(part:getFullType())
+end
+
+function G.selectable(part) return not G.permanent(part) end
+
+function G.depends(child, parent)
+    if Framework.Required.RequiresParent(child, parent) then return true end
+    for _, fullType in ipairs(Framework.Railing.AcceptedAccessories[parent] or {}) do
+        if fullType == child then return true end
+    end
+    return false
+end
+
 function G.metadata(weapon, part)
     local fullType = part:getFullType()
     return {all=Framework.Required.Dependencies[fullType] or {},

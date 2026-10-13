@@ -1,19 +1,16 @@
 local M = require "GMAW/Model"
 local Framework = require "GMAW/Framework"
-local Required, Underbarrel, Railing = Framework.Required, Framework.Underbarrel, Framework.Railing
+local Underbarrel = Framework.Underbarrel
 local T = require "GMAW/Attachments"
 local B = {}
-local function depends(child, parent)
-    if Required.RequiresParent(child, parent) then return true end
-    for _, fullType in ipairs(Railing.AcceptedAccessories[parent] or {}) do
-        if fullType == child then return true end
-    end
-    return false
-end
 
 function B.preflight(player, weapon, catalog, plan, removeSlot, toolsWillTransfer)
     if not M.actionSafe(weapon) then return nil, "NativeConflict" end
     if Underbarrel.IsWeaponInUnderbarrelMode(weapon) then return nil, "Special" end
+    local provider = M.providerFor(weapon)
+    local function depends(child, parent)
+        return provider and provider.depends and provider.depends(child, parent, weapon) == true
+    end
     local installed, detach, replacing = M.installed(weapon), {}, {}
     if removeSlot then
         if not installed[removeSlot] then return nil, "Stale" end

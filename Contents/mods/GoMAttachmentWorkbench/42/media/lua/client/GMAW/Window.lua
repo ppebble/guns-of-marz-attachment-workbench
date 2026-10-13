@@ -9,12 +9,16 @@ local M = require "GMAW/Model"
 local P = require "GMAW/Planner"
 local S = require "GMAW/Sources"
 local V = require "GMAW/Presentation"
+local UIProfiles = require "GMAW/UI/ProfileRegistry"
+local AttachmentAnchors = require "GMAW/UI/AttachmentAnchors"
+local LayoutPreferences = require "GMAW/UI/LayoutPreferences"
 require "GMAW/Actions"
 -- Do not retain require()'s transient nil during PZ client-script loading.
 local A = GMAWActions
 local W = ISCollapsableWindow:derive("GMAWWindow")
 local T = ISToolTipInv:derive("GMAWItemTooltip")
 local D = ISPanel:derive("GMAWWeaponDiagram")
+local Divider = ISPanel:derive("GMAWDivider")
 GMAWWindows = GMAWWindows or {}
 local function tr(key) return getText("IGUI_GMAW_" .. key) end
 
@@ -206,12 +210,12 @@ end
 local diagramRoles = {
     Scope={0.43,true,1,0.36}, Stock={0.10,true,2,0.02},
     Canon={0.96,true,3,0.98}, Suppressor={0.96,true,3,0.98},
-    LaserRifle={0.57,false,4,0.55}, Laser={0.57,false,4,0.55},
+    LaserRifle={0.57,true,4,0.55}, Laser={0.57,true,4,0.55},
     Foregrip={0.64,false,5,0.43}, Grip={0.64,false,5,0.43},
     LightRifle={0.77,false,6,0.75}, Light={0.77,false,6,0.75},
     Bipod={0.87,false,7,0.98}, L_Scope={0.48,true,8,0.50},
     Barrel={0.84,true,9,0.86}, Underbarrel={0.69,false,10,0.75},
-    Handguard={0.65,true,10,0.66}, Clip={0.43,false,11,0.28},
+    Handguard={0.65,false,10,0.66}, Clip={0.43,false,11,0.28},
     Barrel_Shroud={0.82,true,12,0.82}, Shellholder={0.32,false,13,0.15},
     RecoilPad={0.05,true,14,0.01}, Sling={0.23,false,15,0.02},
     Hide_Beam={0.60,true,16,0.60}, Misc={0.35,false,17,0.12},
@@ -219,6 +223,16 @@ local diagramRoles = {
 }
 local prerequisiteTarget = {RailUp="Scope", Mount="Scope", RailDown="Foregrip",
     RailLeft="LaserRifle", RailRight="LightRifle", CanonMount="Canon"}
+-- Card placement only; diagramRoles still supplies the existing leader anchors.
+-- Coordinates are in the pre-reflection layout (front = right).
+local cardPositions = {
+    Laser={0.78,true}, LaserRifle={0.78,true},
+    Light={0.92,true}, LightRifle={0.92,true},
+    Barrel={0.85,true}, Hide_Beam={0.85,true},
+    Handguard={0.70,false}, Barrel_Shroud={0.82,false},
+    Bipod={0.94,false}, Underbarrel={0.64,false}, Stool={0.82,false},
+    Foregrip={0.50,false}, Grip={0.50,false},
+}
 function W:diagramCards()
     local result={}
     for _,card in ipairs(self.view and self.view.slots or {}) do
@@ -237,30 +251,69 @@ function D:cardLayout()
         and cached.height==self.height and cached.fontHeight==font then return cached end
     local cards=self.window:diagramCards()
     local upper,lower,left,right={},{},{},{}
-    local sideRoles={Canon="right",Suppressor="right",Barrel_Shroud="right",Stock="left",Sling="left",Misc="left",RecoilPad="left"}
-    local useSides=self.width>=450 and self.height>=280
+    -- Distribute physical end/side parts along the outer edges. When a side
+    -- fills up, keep the overflow visible in its original top/bottom lane.
+    local sideRoles={Canon="right",Suppressor="right",Stock="left",Sling="left",
+        RecoilPad="left",Shellholder="left",Misc="left"}
+    local useSides=self.width>=450 and self.height>=255
+    local sideCapacity=self.height>=350 and 4 or self.height>=305 and 3
+        or self.height>=255 and 2 or 0
+    local sideCandidates={left={},right={}}
     for index,card in ipairs(cards) do
         local role=diagramRoles[card.slot] or {0.4,false,20,0.2}
         local side=useSides and sideRoles[card.slot]
-        local group=side=="left" and left or side=="right" and right or role[2] and upper or lower
-        group[#group+1]={index=index,role=role}
+        local position=cardPositions[card.slot] or role
+        local entry={index=index,role=role,position=position}
+        if side then
+            sideCandidates[side][#sideCandidates[side]+1]=entry
+        else
+            local group=position[2] and upper or lower
+            group[#group+1]=entry
+        end
     end
-    local gunHeight=math.max(56,math.floor(self.height*(useSides and 0.40 or 0.25)),
-        math.max(#left,#right)*(font*2+16))
+    for _,side in ipairs({"left","right"}) do
+        local candidates=sideCandidates[side]
+        table.sort(candidates,function(a,b)
+            if a.role[3]==b.role[3] then return a.index<b.index end
+            return a.role[3]<b.role[3]
+        end)
+        for i,entry in ipairs(candidates) do
+            local target
+            if i<=sideCapacity then target=side=="left" and left or right
+            else target=entry.position[2] and upper or lower end
+            target[#target+1]=entry
+        end
+    end
+    local sideHeight=font*2+10
+    local gunHeight=math.max(56,math.floor(self.height*(useSides and 0.39 or 0.25)),
+        math.max(#left,#right)*(sideHeight+7)+8)
     local choice
+    -- Reserve separate horizontal regions so dense front cards wrap locally
+    -- instead of pushing the optics or crossing into the stock region.
+    local split=math.floor(self.width*0.55)
+    local function zone(entry) return entry.position[1]>0.60 and 2 or 1 end
+    local function rowsFor(group,columns)
+        local counts={0,0}
+        for _,entry in ipairs(group) do local z=zone(entry);counts[z]=counts[z]+1 end
+        return math.max(math.ceil(counts[1]/columns[1]),math.ceil(counts[2]/columns[2]))
+    end
     -- Keep full labels and installed-part details whenever possible. A dense
     -- small viewport uses one-line nodes; the full details stay in the lists.
     for _,detail in ipairs({true,false}) do
-        for _,desiredWidth in ipairs({112,104,92,80,68,54}) do
-            local columns=math.max(1,math.floor((self.width-12)/(desiredWidth+6)))
-            local cardWidth=math.floor((self.width-12-(columns-1)*6)/columns)
+        for _,desiredWidth in ipairs({112,104,92,80,68,54,42}) do
+            local spans={split-10,self.width-split-10}
+            local columns={math.max(1,math.floor((spans[1]+8)/(desiredWidth+8))),
+                math.max(1,math.floor((spans[2]+8)/(desiredWidth+8)))}
+            local cardWidth=math.min(116,
+                math.floor((spans[1]-(columns[1]-1)*8)/columns[1]),
+                math.floor((spans[2]-(columns[2]-1)*8)/columns[2]))
             local cardHeight=font*(detail and 2 or 1)+(detail and 10 or 6)
-            local upperRows=math.ceil(#upper/columns)
-            local lowerRows=math.ceil(#lower/columns)
-            local needed=font+10+(upperRows+lowerRows)*(cardHeight+8)+gunHeight+8
+            local upperRows=rowsFor(upper,columns)
+            local lowerRows=rowsFor(lower,columns)
+            local needed=font+10+(upperRows+lowerRows)*(cardHeight+12)+gunHeight+12
             if needed<=self.height then
                 choice={columns=columns,cardWidth=cardWidth,cardHeight=cardHeight,
-                    upperRows=upperRows,lowerRows=lowerRows,detail=detail}; break
+                    upperRows=upperRows,lowerRows=lowerRows,detail=detail,gap=8}; break
             end
         end
         if choice then break end
@@ -269,67 +322,101 @@ function D:cardLayout()
     -- normal window reserves enough diagram space for the provider slot sets.
     if not choice then
         local columns=math.max(1,#upper,#lower)
-        choice={columns=columns,cardWidth=math.max(1,math.floor((self.width-12-(columns-1)*2)/columns)),
+        choice={columns={columns,columns},cardWidth=math.max(1,math.floor((math.min(split-10,self.width-split-10)-(columns-1)*2)/columns)),
             cardHeight=font+6,upperRows=1,lowerRows=1,detail=false,gap=2}
     end
     local c=choice
-    local used=font+10+(c.upperRows+c.lowerRows)*(c.cardHeight+8)+gunHeight+8
-    local gunY=font+10+c.upperRows*(c.cardHeight+8)+math.max(0,math.floor((self.height-used)/2))
-    local gunInset=useSides and math.floor(self.width*0.20) or 18
+    local used=font+10+(c.upperRows+c.lowerRows)*(c.cardHeight+12)+gunHeight+12
+    local gunY=font+10+c.upperRows*(c.cardHeight+12)+math.max(0,math.floor((self.height-used)/2))
+    local gunInset=useSides and math.floor(self.width*0.19) or 18
     local l={view=self.window.view,width=self.width,height=self.height,fontHeight=font,
         nodes={},details=c.detail,gun={x=gunInset,y=gunY,width=self.width-gunInset*2,height=gunHeight}}
-    local function place(group,top,rows)
+    local function place(group,top,rows,region)
         table.sort(group,function(a,b)
-            if a.role[3]==b.role[3] then return a.index<b.index end
-            return a.role[3]<b.role[3]
+            if a.position[1]==b.position[1] then return a.index<b.index end
+            return a.position[1]<b.position[1]
         end)
-        local positions={}
-        for row=1,rows do
-            for column=1,c.columns do
-                local x=6+(column-1)*(c.cardWidth+(c.gap or 6))
-                -- Stagger individual nodes, rather than aligning every card
-                -- or routing every connector through a shared long trunk.
-                local stagger=(column*3+row)%5
-                local y=top and (gunY-8-row*(c.cardHeight+8)+stagger)
-                    or (gunY+gunHeight+8+(row-1)*(c.cardHeight+8)+stagger)
-                positions[#positions+1]={x=x,y=y,row=row}
-            end
+        -- Put cards near their physical attachment points, not into the
+        -- first N grid cells. Keep minimum separation and independent leaders.
+        local lanes={}
+        for row=1,math.max(1,rows) do lanes[row]={} end
+        for i,entry in ipairs(group) do
+            local lane=lanes[1+(i-1)%math.max(1,rows)]
+            lane[#lane+1]=entry
         end
-        for _,entry in ipairs(group) do
-            local r=entry.role
-            local preferred=6+r[4]*(self.width-c.cardWidth-12)
-            local best,bestScore
-            for index,position in ipairs(positions) do
-                local score=math.abs(position.x-preferred)+(position.row-1)*c.cardWidth*0.7
-                if not bestScore or score<bestScore then best=index;bestScore=score end
+        for row,entries in ipairs(lanes) do
+            local pitch=c.cardWidth+(c.gap or 8)
+            local start=(region==1 and 6 or split+4)+c.cardWidth/2
+            local finish=(region==1 and split-4 or self.width-6)-c.cardWidth/2
+            local centers={}
+            -- Balanced packing: share any unavoidable horizontal offset across
+            -- neighboring cards instead of stretching the last leader alone.
+            local blocks={}
+            for i,entry in ipairs(entries) do
+                local preferred=l.gun.x+l.gun.width*(0.08+entry.position[1]*0.84)
+                blocks[#blocks+1]={first=i,last=i,total=preferred-(i-1)*pitch,count=1}
+                while #blocks>=2 do
+                    local right=blocks[#blocks]
+                    local left=blocks[#blocks-1]
+                    if left.total/left.count<=right.total/right.count then break end
+                    left.last=right.last;left.total=left.total+right.total;left.count=left.count+right.count
+                    blocks[#blocks]=nil
+                end
             end
-            local position=table.remove(positions,best)
-            local anchorY=top and gunY+3 or gunY+gunHeight-3
-            local edgeY=top and position.y+c.cardHeight or position.y
-            l.nodes[entry.index]={x=position.x,y=position.y,width=c.cardWidth,height=c.cardHeight,top=top,
-                anchorX=math.floor(l.gun.x+l.gun.width*(0.08+r[1]*0.84)),anchorY=anchorY,
-                elbowY=top and math.min(gunY-3,edgeY+6) or math.max(gunY+gunHeight+3,edgeY-6)}
+            for _,block in ipairs(blocks) do
+                local offset=math.max(start,math.min(finish-(#entries-1)*pitch,block.total/block.count))
+                for i=block.first,block.last do centers[i]=offset+(i-1)*pitch end
+            end
+            for i,entry in ipairs(entries) do
+                local stagger=((i+row)%3)*2
+                local y=top and gunY-10-row*(c.cardHeight+8)-stagger
+                    or gunY+gunHeight+10+(row-1)*(c.cardHeight+8)+stagger
+                local anchorX=math.floor(l.gun.x+l.gun.width*(0.08+entry.role[1]*0.84))
+                l.nodes[entry.index]={x=math.floor(centers[i]-c.cardWidth/2),y=y,
+                    width=c.cardWidth,height=c.cardHeight,top=top,
+                    anchorX=anchorX,anchorY=top and gunY+2 or gunY+gunHeight-2,
+                    elbowY=top and gunY-6-(i%2)*2 or gunY+gunHeight+6+(i%2)*2}
+            end
         end
     end
-    place(upper,true,c.upperRows);place(lower,false,c.lowerRows)
+    for region=1,2 do
+        local top,bottom={},{}
+        for _,entry in ipairs(upper) do if zone(entry)==region then top[#top+1]=entry end end
+        for _,entry in ipairs(lower) do if zone(entry)==region then bottom[#bottom+1]=entry end end
+        place(top,true,math.ceil(#top/c.columns[region]),region)
+        place(bottom,false,math.ceil(#bottom/c.columns[region]),region)
+    end
     local function placeSide(group,side)
         table.sort(group,function(a,b) return a.role[3]<b.role[3] end)
-        local height=font*2+10
+        local height=sideHeight
         local width=gunInset-12
+        local gap=math.max(4,math.floor((gunHeight-#group*height)/(#group+1)))
         for index,entry in ipairs(group) do
             local rightSide=side=="right"
             local x=rightSide and self.width-width-6 or 6
-            local y=gunY+(index-1)*(height+6)+3
+            local y=gunY+index*gap+(index-1)*height
             local edgeX=rightSide and x or x+width
             local edgeY=y+math.floor(height/2)
             local anchorX=rightSide and l.gun.x+l.gun.width-3 or l.gun.x+3
-            local anchorY=math.floor(gunY+gunHeight*(index==1 and 0.38 or 0.72))
+            local anchorY=edgeY
             l.nodes[entry.index]={x=x,y=y,width=width,height=height,side=side,
                 edgeX=edgeX,edgeY=edgeY,anchorX=anchorX,anchorY=anchorY,
                 elbowX=math.floor((edgeX+anchorX)/2)}
         end
     end
     placeSide(left,"left");placeSide(right,"right")
+    -- The native fixed-profile preview visibly points left in-game. Mirror
+    -- only the UI layout to match its muzzle/stock ends, never the 3D model.
+    -- Reflect every connector point as well as each card's hit rectangle so
+    -- all leader lines, hit tests and selection remain attached to the card.
+    for _,node in pairs(l.nodes) do
+        node.x=self.width-node.x-node.width
+        node.anchorX=self.width-node.anchorX
+        if node.edgeX then node.edgeX=self.width-node.edgeX end
+        if node.elbowX then node.elbowX=self.width-node.elbowX end
+        if node.side=="left" then node.side="right"
+        elseif node.side=="right" then node.side="left" end
+    end
     self.spatialLayout=l
     return l
 end
@@ -338,8 +425,12 @@ function D:cardRect(index,layout)
     if n then return n.x,n.y,n.width,n.height end
 end
 local function segment(panel,x1,y1,x2,y2,selected)
+    -- Avoid artificial 1x1 "dots" from coincident endpoints. The leaders
+    -- indicate approximate slot regions, not verified mesh attach points.
+    if x1==x2 and y1==y2 then return end
     panel:drawRect(math.min(x1,x2),math.min(y1,y2),math.max(1,math.abs(x2-x1)),
-        math.max(1,math.abs(y2-y1)),0.85,selected and 1 or 0.55,selected and 0.65 or 0.43,0.20)
+        math.max(1,math.abs(y2-y1)),selected and 0.62 or 0.34,
+        selected and 1 or 0.48,selected and 0.65 or 0.40,0.18)
 end
 -- Known square rifle icons point from lower-left to upper-right. Rotate the
 -- original texture uniformly; never stretch its silhouette to fill the panel.
@@ -360,6 +451,105 @@ function D:weaponQuad(gun,texture,layout)
         {x=cx,y=cy+radius},{x=cx-radius,y=cy}}
 end
 local function fixedPreviewInput() return true end
+-- Lua exposes attachment offsets, but not the mesh bounds. Estimate framing
+-- from those points with silhouette clearance; never edit the model script.
+function D:modelDirection(script)
+    local muzzle=script.getAttachmentById and script:getAttachmentById("muzzle")
+    if not muzzle then return 1 end
+    local front=muzzle:getOffset():y()
+    for _,id in ipairs({"Stock","stock","RecoilPad","Grip","grip","magazine"}) do
+        local rear=script:getAttachmentById(id)
+        if rear then
+            local distance=front-rear:getOffset():y()
+            if math.abs(distance)>0.03 then return distance<0 and -1 or 1 end
+        end
+    end
+    if script.getAttachmentCount then
+        local minY,maxY
+        for i=0,script:getAttachmentCount()-1 do
+            local a=script:getAttachment(i)
+            if a:getId()~="world" and a:getId()~="muzzle" then
+                local y=a:getOffset():y()
+                minY=math.min(minY or y,y); maxY=math.max(maxY or y,y)
+            end
+        end
+        if minY and front<minY-0.03 then return -1 end
+        if maxY and front>maxY+0.03 then return 1 end
+    end
+    return front<0 and -1 or 1
+end
+function D:modelUpSign(gun,script)
+    local profile=UIProfiles.forWeapon(gun)
+    local fullType=script.getFullType and script:getFullType()
+    local name=fullType and fullType:match("^MarzGuns%.([^%.]+)$")
+    return profile and profile.invertedUpModels and profile.invertedUpModels[name] and -1 or 1
+end
+function D:modelFrame(script,upSign)
+    if not script.getAttachmentCount then return nil end
+    local direction=self:modelDirection(script)
+    local bounds
+    for i=0,script:getAttachmentCount()-1 do
+        local a=script:getAttachment(i)
+        if a:getId()~="world" then
+            local p=a:getOffset()
+            local x,y,z=p:x(),p:y(),p:z()
+            -- The fixed native Right camera (Y=90) and a model X=-90
+            -- project the held-model Y axis horizontally and Z upright.
+            x,z=y*direction,z*(upSign or 1)
+            if x==x and z==z and math.abs(x)<10 and math.abs(z)<10 then
+                if not bounds then bounds={left=x,right=x,bottom=z,top=z,count=0,hasStock=false} end
+                bounds.left=math.min(bounds.left,x);bounds.right=math.max(bounds.right,x)
+                bounds.bottom=math.min(bounds.bottom,z);bounds.top=math.max(bounds.top,z)
+                if a:getId()=="Stock" or a:getId()=="stock" or a:getId()=="RecoilPad" then
+                    bounds.hasStock=true
+                end
+                bounds.count=bounds.count+1
+            end
+        end
+    end
+    if not bounds or bounds.count<2 or bounds.right-bounds.left<0.05 then return nil end
+    return bounds
+end
+-- Attachment offsets are NOT mesh vertices. In particular Emre AWP has only
+-- muzzle (Y=.5781) and magazine (Y=.1035): the stock extends behind both.
+-- Reserve conservative rear/up/down silhouette room; do not pretend that
+-- mounting-point bounds are the full geometry of the weapon.
+function D:modelEnvelope(b)
+    local length=b.right-b.left
+    local rear=math.max(b.hasStock and 0.14 or 0.27,
+        length*(b.hasStock and 0.35 or 0.90))
+    local front=math.max(0.07,length*0.14)
+    local fullLength=length+rear+front
+    local down=math.max(0.11,fullLength*0.24)
+    local up=math.max(0.11,fullLength*0.18)
+    return {left=b.left-rear,right=b.right+front,
+        bottom=b.bottom-down,top=b.top+up}
+end
+function D:fitModelPreview(scene)
+    local b=scene.frameBounds
+    if not b or (scene.fitWidth==scene.width and scene.fitHeight==scene.height) then return end
+    local e=self:modelEnvelope(b)
+    local framedWidth=e.right-e.left
+    local framedHeight=math.max(e.top-e.bottom,framedWidth*0.47)
+    local pixelsPerUnit=scene.width/1366*math.exp(13*0.2)*160/1.82
+    local scale=math.min(scene.width*0.86/(framedWidth*pixelsPerUnit),
+        scene.height*0.86/(framedHeight*pixelsPerUnit))
+    scale=math.max(0.05,math.min(8,scale))
+    local j=scene.javaObject
+    j:fromLua1("setZoom",13)
+    j:fromLua1("getObjectScale","weapon"):set(scale,scale,scale)
+    -- Native SceneObject transform is T * R * S. With View.Right (90 Y),
+    -- screen X = world Z, so the horizontal centering offset is world Z,
+    -- NOT world X. Old X translation could never center this camera.
+    local tx,ty,tz=0,-(e.bottom+e.top)/2*scale,(e.left+e.right)/2*scale
+    j:fromLua1("getObjectTranslation","weapon"):set(tx,ty,tz)
+    -- Retain the ACTUAL fitted scene transform for provider-specific visual
+    -- leader projection. This is read-only metadata; never alter the mesh.
+    scene.anchorScale=scale
+    scene.anchorTranslation={x=tx,y=ty,z=tz}
+    scene.leaderCache=nil
+    scene.fitWidth,scene.fitHeight=scene.width,scene.height
+end
 function D:clearModelPreview()
     if self.modelScene then
         pcall(function() self.modelScene.javaObject:fromLua1("removeModel","weapon") end)
@@ -387,7 +577,10 @@ function D:updateModelPreview(gun,layout)
                 scene.onMouseDown=fixedPreviewInput;scene.onMouseUp=fixedPreviewInput
                 scene.onMouseMove=fixedPreviewInput;scene.onMouseMoveOutside=fixedPreviewInput
                 scene.onMouseUpOutside=fixedPreviewInput;scene.onMouseWheel=fixedPreviewInput
-                scene:setView("UserDefined")
+                -- UI3DScene starts in View.Right. Switching to UserDefined
+                -- triggers a native 350 ms quaternion camera animation.
+                -- Setting Right again is a no-op: the gun appears instantly.
+                scene:setView("Right")
                 local j=scene.javaObject
                 j:fromLua1("setDrawGrid",false)
                 j:fromLua1("setDrawGridAxes",false)
@@ -395,18 +588,24 @@ function D:updateModelPreview(gun,layout)
                 j:fromLua1("setMaxZoom",20)
                 local longGun=gun:isTwoHandWeapon()
                 j:fromLua1("setZoom",longGun and 13 or 17)
-                -- Live Gael models face left with the default side camera.
-                -- View the opposite side while preserving screen-up; don't
-                -- rotate the image upside down or move the attachment nodes.
-                local reverseSide=gun.getModID and gun:getModID()=="GaelGunStore_B42"
-                j:fromLua3("setViewRotation",reverseSide and -90 or 90,reverseSide and 180 or 0,0)
                 j:fromLua2("createModel","weapon",script:getFullType())
+                scene.previewScript=script
                 j:fromLua2("setObjectAutoRotate","weapon",false)
-                j:fromLua2("setModelUseWorldAttachment","weapon",true)
-                j:fromLua2("setModelWeaponRotationHack","weapon",true)
-                -- Weapon origins sit near the grip, behind their visual center.
-                local offset=longGun and -0.15 or -0.04
-                j:fromLua1("getObjectTranslation","weapon"):set(reverseSide and -offset or offset,0,0)
+                j:fromLua2("setModelUseWorldAttachment","weapon",false)
+                j:fromLua2("setModelWeaponRotationHack","weapon",false)
+                -- Held model: forward local Y becomes screen left, local Z
+                -- stays up. For reversed-Y barrels, roll 180 around model Z
+                -- before the X=-90 tip; do not roll the camera or view.
+                local reverse=self:modelDirection(script)<0
+                local upSign=self:modelUpSign(gun,script)
+                scene.anchorUpSign=upSign
+                -- A Y half-turn corrects authored negative-Z up without
+                -- changing the forward Y axis or the left-facing muzzle.
+                j:fromLua1("getObjectRotation","weapon"):set(-90,upSign<0 and 180 or 0,reverse and 180 or 0)
+                j:fromLua1("getObjectTranslation","weapon"):set(0,0,0)
+                local framed,bounds=pcall(self.modelFrame,self,script,upSign)
+                scene.frameBounds=framed and bounds or nil
+                self:fitModelPreview(scene)
             end)
             if not ok then self:clearModelPreview();self.previewGun=gun end
         end
@@ -418,8 +617,43 @@ function D:updateModelPreview(gun,layout)
         if scene.y~=g.y then scene:setY(g.y) end
         if scene.width~=g.width then scene:setWidth(g.width) end
         if scene.height~=g.height then scene:setHeight(g.height) end
+        self:fitModelPreview(scene)
     end
     return scene~=nil
+end
+function D:providerLeaderPoints(gun)
+    local profile=UIProfiles.forWeapon(gun)
+    if not profile then return {} end -- No verified geometry: cards only.
+    local scene=self.modelScene
+    if not scene or not scene.previewScript or not scene.anchorScale then return {} end
+    local cached=scene.leaderCache
+    if cached and cached.width==scene.width and cached.height==scene.height
+        and cached.x==scene.x and cached.y==scene.y and cached.view==self.window.view
+        and cached.profile==profile then return cached.points end
+    local points={}
+    local script=scene.previewScript
+    local direction=self:modelDirection(script)
+    local foundAttachment=false
+    for index,card in ipairs(self.window:diagramCards()) do
+        local valid,attachment=pcall(AttachmentAnchors.resolve,profile,script,card.slot)
+        if valid and attachment then
+            foundAttachment=true
+            local projected,point=pcall(AttachmentAnchors.project,profile,scene,attachment,direction)
+            if projected and point then
+                points[index]={x=scene.x+point.x,y=scene.y+point.y,id=attachment.id}
+            end
+        end
+    end
+    -- An initially unready native projector can briefly return no usable
+    -- points. Retry on a few subsequent frames before caching an empty map.
+    scene.leaderAttempts=(scene.leaderAttempts or 0)+1
+    local hasPoint=false
+    for _ in pairs(points) do hasPoint=true; break end
+    if hasPoint or not foundAttachment or scene.leaderAttempts>=3 then
+        scene.leaderCache={profile=profile,width=scene.width,height=scene.height,
+            x=scene.x,y=scene.y,view=self.window.view,points=points}
+    end
+    return points
 end
 function D:prerender()
     ISPanel.prerender(self)
@@ -427,6 +661,7 @@ function D:prerender()
     local l=self:cardLayout()
     local gun=self.window.target and self.window.target.item
     local modelVisible=self:updateModelPreview(gun,l)
+    local providerPoints=self:providerLeaderPoints(gun)
     if gun then
         self:drawText(fit(gun:getName(),self.width-16),8,3,0.95,0.95,0.95,1,UIFont.Small)
         local texture=not modelVisible and gun:getTex()
@@ -450,16 +685,21 @@ function D:prerender()
             local x,y,width,height=n.x,n.y,n.width,n.height
             local selected=card.slot==self.window:diagramActiveSlot()
             local cx=math.floor(x+width/2)
-            if n.side then
-                segment(self,n.edgeX,n.edgeY,n.elbowX,n.edgeY,selected)
-                segment(self,n.elbowX,n.edgeY,n.elbowX,n.anchorY,selected)
-                segment(self,n.elbowX,n.anchorY,n.anchorX,n.anchorY,selected)
-            else
-                segment(self,cx,n.top and y+height or y,cx,n.elbowY,selected)
-                segment(self,cx,n.elbowY,n.anchorX,n.elbowY,selected)
-                segment(self,n.anchorX,n.elbowY,n.anchorX,n.anchorY,selected)
+            local point=providerPoints[index]
+            if selected and point then
+                if n.side then
+                    local elbowX=math.floor((n.edgeX+point.x)/2)
+                    segment(self,n.edgeX,n.edgeY,elbowX,n.edgeY,selected)
+                    segment(self,elbowX,n.edgeY,elbowX,point.y,selected)
+                    segment(self,elbowX,point.y,point.x,point.y,selected)
+                else
+                    segment(self,cx,n.top and y+height or y,cx,n.elbowY,selected)
+                    segment(self,cx,n.elbowY,point.x,n.elbowY,selected)
+                    segment(self,point.x,n.elbowY,point.x,point.y,selected)
+                end
             end
-            self:drawRect(n.anchorX-2,n.anchorY-2,5,5,1,0.98,0.62,0.18)
+            -- No endpoint square: model scripts often lack the exact position
+            -- of this slot, so a prominent pin would imply false precision.
             self:drawRect(x,y,width,height,0.97,0.1,0.11,0.12)
             self:drawRectBorder(x,y,width,height,1,selected and 0.98 or 0.38,selected and 0.62 or 0.43,selected and 0.18 or 0.47)
             self:drawText(fit(tr("Slot_"..card.slot),width-8),x+4,y+3,0.9,0.9,0.9,1,UIFont.Small)
@@ -486,8 +726,168 @@ function D:onMouseDown(x,y)
     return false
 end
 
+function Divider:onMouseDown(x, y)
+    self.dragging = true
+    self.downX, self.downY = self.x + x, self.y + y
+    local w = self.window
+    self.startRatio = self.axis == "left" and w.leftWidth / (w.width - 40)
+        or self.axis == "middle" and w.middleWidth / (w.width - w.middleX - 20) or w.layoutPrefs.diagramRatio
+    self:setCapture(true)
+    return true
+end
+function Divider:onMouseMove(dx, dy)
+    if not self.dragging then return end
+    local w, prefs = self.window, self.window.layoutPrefs
+    if self.axis == "left" then
+        prefs.leftRatio = self.startRatio + (self.x + self:getMouseX() - self.downX) / (w.width - 40)
+    elseif self.axis == "middle" then
+        prefs.middleRatio = self.startRatio + (self.x + self:getMouseX() - self.downX) / (w.width - w.middleX - 20)
+    else
+        prefs.diagramRatio = self.startRatio + (self.y + self:getMouseY() - self.downY) / w.panelHeight
+    end
+    w.layoutPrefs = LayoutPreferences.sanitize(prefs, getCore():getScreenWidth(), getCore():getScreenHeight())
+    w:layoutChildren()
+    w.layoutSaveFrames = 30
+    return true
+end
+Divider.onMouseMoveOutside = Divider.onMouseMove
+function Divider:onMouseUp(x, y)
+    if not self.dragging then return end
+    self.dragging = false
+    self:setCapture(false)
+    self.window:saveLayout()
+    return true
+end
+Divider.onMouseUpOutside = Divider.onMouseUp
+function Divider:prerender()
+    local shade = self.dragging and 0.8 or 0.4
+    if self.axis == "diagram" then
+        self:drawRect(0, math.floor(self.height / 2), self.width, 2, 0.8, shade, shade, shade)
+    else
+        self:drawRect(math.floor(self.width / 2), 0, 2, self.height, 0.8, shade, shade, shade)
+    end
+end
+
+local function bounds(control, x, y, width, height)
+    control:setX(x); control:setY(y)
+    control:setWidth(math.max(1, width)); control:setHeight(math.max(1, height))
+end
+
+-- Evaluate actual font-dependent node geometry, including dense slot sets.
+-- Returning from the list requires extra room to avoid boundary flicker.
+function W:diagramFits()
+    local width, height = self.diagram.width, self.diagram.height
+    local margin = self.compactCenter and 24 or 0
+    -- Probe a smaller candidate while compact; requiring spare width AND
+    -- height also stabilizes transitions caused by wrapping into another row.
+    self.diagram.width, self.diagram.height = width - margin, height - margin
+    local layout = self.diagram:cardLayout()
+    self.diagram.width, self.diagram.height = width, height
+    if layout.gun.width < 150 or layout.gun.height < 56 then return false end
+    for _, node in pairs(layout.nodes) do
+        if node.width < math.max(62, layout.fontHeight * 4)
+            or node.height < layout.fontHeight + 6
+            or node.x < 0 or node.y < 0
+            or node.x + node.width > layout.width
+            or node.y + node.height > layout.height then return false end
+        local gun = layout.gun
+        if node.x < gun.x + gun.width and gun.x < node.x + node.width
+            and node.y < gun.y + gun.height and gun.y < node.y + node.height then return false end
+        for _, other in pairs(layout.nodes) do
+            if other ~= node and node.x < other.x + other.width and other.x < node.x + node.width
+                and node.y < other.y + other.height and other.y < node.y + node.height then return false end
+        end
+    end
+    return true
+end
+
+function W:layoutChildren()
+    if not self.slots then return end
+    local prefs, usable = self.layoutPrefs, self.width - 40
+    local collapsed = prefs.weaponsCollapsed
+    self.leftWidth = collapsed and 24 or math.floor(math.max(160, math.min(usable - 380, usable * prefs.leftRatio)))
+    self.middleX = 20 + self.leftWidth
+    local remaining = self.width - self.middleX - 20
+    self.middleWidth = math.floor(math.max(200, math.min(remaining - 180, remaining * prefs.middleRatio)))
+    self.optionsX = self.middleX + self.middleWidth + 10
+    self.optionsWidth = self.width - self.optionsX - 10
+    self.toolFontHeight = getTextManager():getFontHeight(UIFont.Small)
+    self.toolBoxSize = math.max(48, self.toolFontHeight * 2 + 12)
+    self.cartY = self.height - 146
+    self.cartLabelY = self.cartY - self.toolFontHeight - 4
+    self.toolY = self.cartLabelY - self.toolBoxSize - 8
+    self.toolLabelY = self.toolY - self.toolFontHeight - 6
+    self.statusY = self.toolLabelY - self.toolFontHeight - 8
+    local bottom = self.statusY - 8
+    self.panelHeight = math.max(48, bottom - 66)
+    local diagramHeight = math.max(32, math.min(self.panelHeight - 56,
+        math.floor(self.panelHeight * prefs.diagramRatio)))
+    bounds(self.searchEntry, 10, 66, self.leftWidth, 26)
+    bounds(self.weapons, 10, 99, self.leftWidth, bottom - 99)
+    self.searchEntry:setVisible(not collapsed); self.weapons:setVisible(not collapsed)
+    if collapsed and self.weapons.tooltipUI then
+        self.weapons.tooltipUI:setVisible(false); self.weapons.tooltipUI:removeFromUIManager()
+    end
+    bounds(self.diagram, self.middleX, 66, self.middleWidth, diagramHeight)
+    self.compactCenter = not self:diagramFits()
+    self.diagram:setVisible(not self.compactCenter)
+    if self.compactCenter then self.diagram:clearModelPreview() end
+    local slotsY = self.compactCenter and 66 or 74 + diagramHeight
+    bounds(self.slots, self.middleX, slotsY, self.middleWidth, bottom - slotsY - (self.compactCenter and 8 or 0))
+    self.mountHeight = math.min(92, math.floor(self.panelHeight * 0.3))
+    self.partsY = 66 + self.mountHeight + 30
+    bounds(self.mounts, self.optionsX, 66, self.optionsWidth, self.mountHeight)
+    bounds(self.parts, self.optionsX, self.partsY, self.optionsWidth, bottom - self.partsY)
+    bounds(self.cart, 10, self.cartY, self.width - 20, 100)
+    bounds(self.weaponToggle, 10, 38, 24, 24)
+    self.weaponToggle:setTitle(collapsed and ">" or "<")
+    self.weaponToggle.tooltip = tr(collapsed and "ShowWeapons" or "HideWeapons")
+    bounds(self.leftDivider, self.middleX - 9, 66, 8, self.panelHeight)
+    self.leftDivider:setVisible(not collapsed)
+    bounds(self.middleDivider, self.optionsX - 9, 66, 8, self.panelHeight)
+    -- Retain a bottom grip in compact mode to adjust the preferred diagram height.
+    bounds(self.diagramDivider, self.middleX, self.compactCenter and bottom - 8 or 66 + diagramHeight,
+        self.middleWidth, 8)
+    for _, button in ipairs({self.applyButton,self.refreshButton,self.clearButton,self.resetLayoutButton,self.footerCloseButton}) do
+        button:setY(self.height - 42)
+    end
+    self.footerCloseButton:setX(self.width - 130)
+    self.layoutWidth, self.layoutHeight, self.layoutView = self.width, self.height, self.view
+    self.layoutFont = self.toolFontHeight
+end
+
+function W:saveLayout()
+    local p = self.layoutPrefs
+    p.x, p.y, p.width, p.height = self.x, self.y, self.width, self.height
+    LayoutPreferences.save(self.player:getPlayerNum(), p)
+    self.layoutX, self.layoutY = self.x, self.y
+    self.layoutSaveFrames = nil
+end
+function W:toggleWeapons()
+    self.layoutPrefs.weaponsCollapsed = not self.layoutPrefs.weaponsCollapsed
+    self:layoutChildren(); self:saveLayout()
+end
+function W:resetLayout()
+    self.layoutPrefs = LayoutPreferences.defaults(getCore():getScreenWidth(), getCore():getScreenHeight())
+    local p = self.layoutPrefs
+    self:setX(p.x); self:setY(p.y); self:setWidth(p.width); self:setHeight(p.height)
+    self.compactCenter = false
+    self:layoutChildren(); self:saveLayout()
+end
+function W:resizeLayout(width, height)
+    local values = {}
+    for key,value in pairs(self.layoutPrefs) do values[key] = value end
+    values.x, values.y, values.width, values.height = self.x, self.y, width, height
+    values = LayoutPreferences.sanitize(values, getCore():getScreenWidth(), getCore():getScreenHeight())
+    self:setX(values.x); self:setY(values.y)
+    self:setWidth(values.width); self:setHeight(values.height)
+    self:layoutChildren()
+    self.layoutSaveFrames = 30
+end
+
 function W:createChildren()
     ISCollapsableWindow.createChildren(self)
+    self.layoutPrefs = self.layoutPrefs or LayoutPreferences.defaults(getCore():getScreenWidth(), getCore():getScreenHeight())
     local function list(x, y, width, height, rowHeight, draw)
         local box = ISScrollingListBox:new(x, y, width, height)
         box:initialise(); box:instantiate()
@@ -499,8 +899,8 @@ function W:createChildren()
         return box
     end
     local usable = self.width - 40
-    self.leftWidth = math.floor(usable * 0.24)
-    self.middleWidth = math.floor(usable * 0.50)
+    self.leftWidth = math.floor(usable * 0.23)
+    self.middleWidth = math.floor(usable * 0.52)
     self.middleX = 20 + self.leftWidth
     self.optionsX = self.middleX + self.middleWidth + 10
     self.optionsWidth = self.width - self.optionsX - 10
@@ -513,7 +913,10 @@ function W:createChildren()
     self.statusY = self.toolLabelY - self.toolFontHeight - 8
     local panelBottom = self.statusY - 8
     local panelHeight = panelBottom - 66
-    local diagramHeight = math.min(350, panelHeight - math.max(30, self.toolFontHeight + 8))
+    -- On small displays, preserve a usable diagram instead of giving most of
+    -- the remaining height to the scrolling slot list.
+    local diagramReserve=math.max(48,math.min(136,math.floor(panelHeight*0.27)))
+    local diagramHeight = math.min(375, panelHeight - diagramReserve)
     self.searchEntry = ISTextEntryBox:new("", 10, 66, self.leftWidth, 26)
     self.searchEntry:initialise(); self.searchEntry:instantiate()
     self.searchEntry:setPlaceholderText(tr("Search"))
@@ -559,8 +962,20 @@ function W:createChildren()
     self.applyButton = button(10, 150, "Apply", W.apply)
     self.refreshButton = button(170, 120, "Refresh", W.reload)
     self.clearButton = button(300, 120, "Clear", W.clear)
-    button(self.width - 130, 120, "Close", W.close)
+    self.footerCloseButton = button(self.width - 130, 120, "Close", W.close)
+    self.resetLayoutButton = button(430, 140, "ResetLayout", W.resetLayout)
+    self.weaponToggle = button(10, 24, "HideWeapons", W.toggleWeapons)
+    local function divider(axis)
+        local d = Divider:new(0, 0, 8, 8)
+        d.window, d.axis, d.tooltip = self, axis, tr("ResizePanels")
+        d:initialise(); d:instantiate(); self:addChild(d)
+        return d
+    end
+    self.leftDivider, self.middleDivider, self.diagramDivider = divider("left"), divider("middle"), divider("diagram")
+    if self.resizeWidget then self.resizeWidget.resizeFunction = W.resizeLayout end
+    if self.resizeWidget2 then self.resizeWidget2.resizeFunction = W.resizeLayout end
     self:reload()
+    self:layoutChildren()
 end
 
 function W:refreshTools(scan)
@@ -740,6 +1155,19 @@ end
 
 function W:update()
     ISCollapsableWindow.update(self)
+    if self.layoutX ~= self.x or self.layoutY ~= self.y then
+        self.layoutX, self.layoutY = self.x, self.y
+        self.layoutSaveFrames = 30
+    end
+    if self.layoutWidth ~= self.width or self.layoutHeight ~= self.height or self.layoutView ~= self.view
+        or self.layoutFont ~= getTextManager():getFontHeight(UIFont.Small) then
+        self:layoutChildren()
+        self.layoutSaveFrames = 30
+    end
+    if self.layoutSaveFrames then
+        self.layoutSaveFrames = self.layoutSaveFrames - 1
+        if self.layoutSaveFrames <= 0 then self:saveLayout() end
+    end
     self.toolRefreshFrames = (self.toolRefreshFrames or 0) + 1
     if self.toolRefreshFrames >= 30 then
         self.toolRefreshFrames = 0
@@ -786,7 +1214,9 @@ end
 
 function W:prerender()
     ISCollapsableWindow.prerender(self)
-    self:drawText(tr("Weapons"), 10, 42, 1, 1, 1, 1, UIFont.Small)
+    if not self.layoutPrefs.weaponsCollapsed then
+        self:drawText(fit(tr("Weapons"), self.leftWidth - 32), 40, 42, 1, 1, 1, 1, UIFont.Small)
+    end
     self:drawText(tr("Slots"), self.middleX, 42, 1, 1, 1, 1, UIFont.Small)
     self:drawText(fit(tr("Mounts"), self.mounts.width), self.optionsX, 42, 1, 1, 1, 1, UIFont.Small)
     local label = self.activeSlot and tr("Slot_" .. self.activeSlot) or tr("Options")
@@ -800,6 +1230,7 @@ function W:prerender()
 end
 
 function W:close()
+    self:saveLayout()
     self.diagram:clearModelPreview()
     for _, list in ipairs({self.weapons, self.slots, self.mounts, self.parts, self.cart}) do
         if list.tooltipUI then list.tooltipUI:setVisible(false); list.tooltipUI:removeFromUIManager() end
@@ -811,11 +1242,13 @@ end
 function W.open(player, weapon)
     local number = player:getPlayerNum()
     if GMAWWindows[number] then GMAWWindows[number]:close() end
-    local width = math.min(1120, getCore():getScreenWidth() - 30)
-    local height = math.min(820, getCore():getScreenHeight() - 40)
-    local o = W:new(15, 20, width, height)
+    local sw, sh = getCore():getScreenWidth(), getCore():getScreenHeight()
+    local prefs = LayoutPreferences.load(number, sw, sh)
+    local o = W:new(prefs.x, prefs.y, prefs.width, prefs.height)
+    o.layoutPrefs = prefs
+    o.minimumWidth, o.minimumHeight = math.min(720, sw - 30), math.min(600, sh - 40)
     o.player, o.initialID = player, weapon:getID()
-    o.title, o.resizable = tr("Title"), false
+    o.title, o.resizable = tr("Title"), true
     o:initialise(); o:addToUIManager()
     GMAWWindows[number] = o
 end

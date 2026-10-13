@@ -1,7 +1,6 @@
 -- Optional, part-only integration. Never infer ownership from the Base module.
 local T = {}
 local Adapters = require "GMAW/Adapters"
-local Gael = require "GMAW/Providers/Gael"
 local GoM = require "GMAW/Providers/GoM"
 local registeredSimple
 
@@ -75,9 +74,10 @@ end
 -- The planner validates final-state dependencies and conflicts. During preview
 -- a selected parent may still be in inventory; runtime uses strict canAttach.
 function T.canPlanAttach(part, player, weapon)
-    if Gael.owns(part) then
-        return T.sameProvider(part, weapon) and Gael.selectable(part)
-            and part:canAttach(player, weapon)
+    if not T.sameProvider(part, weapon) then return false end
+    local adapter = Adapters.part(part)
+    if adapter and adapter.canPlanAttach then
+        return adapter.canPlanAttach(part, player, weapon) == true
     end
     return T.canAttach(part, player, weapon)
 end

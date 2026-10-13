@@ -1,9 +1,39 @@
 -- Optional integrations register explicit weapon and part capabilities.
 -- No dependency becomes mandatory simply because an adapter is declared.
 -- Keep this module shared: client UI and multiplayer authority must agree.
-local A = {}
+local A = {slots={}, revision=0}
 local GoM = require "GMAW/Providers/GoM"
 local weapons, parts = {}, {}
+local providers, slotSets, knownSlots = {}, {}, {}
+
+-- Shared startup contract: registering a system does not admit any item owner.
+-- Weapon and part adapters still supply activation, MountOn and native actions.
+function A.registerProvider(provider)
+    assert(type(provider) == "table" and type(provider.attachmentSystem) == "string"
+        and provider.attachmentSystem ~= "" and type(provider.slots) == "table"
+        and #provider.slots > 0 and type(provider.metadata) == "function"
+        and type(provider.removable) == "function", "provider requires system, slots, metadata and removal policy")
+    local id, slots = provider.attachmentSystem, {}
+    assert(not providers[id], "duplicate attachment system: " .. id)
+    for _, slot in ipairs(provider.slots) do
+        assert(type(slot) == "string" and slot ~= "" and not slots[slot], "invalid or duplicate provider slot")
+        slots[slot] = true
+    end
+    for _, callback in ipairs({"prepareMetadata", "selectable", "permanent", "depends", "toolKey"}) do
+        assert(provider[callback] == nil or type(provider[callback]) == "function", "invalid provider callback: " .. callback)
+    end
+    providers[id], slotSets[id] = provider, slots
+    for _, slot in ipairs(provider.slots) do
+        if not knownSlots[slot] then
+            knownSlots[slot] = true
+            A.slots[#A.slots + 1] = slot
+        end
+    end
+    A.revision = A.revision + 1
+end
+
+function A.provider(system) return providers[system] end
+function A.slotSet(system) return slotSets[system] end
 
 local function active(spec, mods)
     for _, id in ipairs(spec.requires or {}) do
@@ -35,6 +65,7 @@ function A.registerWeapon(id, spec)
         excludes = spec.excludes, mountOwners = spec.mountOwners,
         matches = spec.matches,
     }
+    A.revision = A.revision + 1
 end
 
 -- Parts from third-party frameworks require explicit native actions and
@@ -48,12 +79,17 @@ function A.registerPart(id, spec)
         and type(spec.tools) == "function"
         and type(spec.action) == "function",
         "part adapters must provide compatibility, tools and native completion")
+    for _, callback in ipairs({"canPlanAttach", "canDetach", "toolKey"}) do
+        assert(spec[callback] == nil or type(spec[callback]) == "function", "invalid part callback: " .. callback)
+    end
     parts[#parts + 1] = {
         id = id, owner = spec.owner, requires = spec.requires,
         attachmentSystem = spec.attachmentSystem or "gom",
         excludes = spec.excludes, compatible = spec.compatible,
         canAttach = spec.canAttach, canDetach = spec.canDetach, tools = spec.tools, action = spec.action,
+        canPlanAttach = spec.canPlanAttach, toolKey = spec.toolKey,
     }
+    A.revision = A.revision + 1
 end
 
 function A.hasActiveWeaponOwner(item)
@@ -125,9 +161,11 @@ function A.weaponSystem(weapon)
     end
 end
 
+A.registerProvider(GoM)
 GoM.register(A)
 
 local Gael = require "GMAW/Providers/Gael"
+A.registerProvider(Gael)
 Gael.register(A)
 
 return A

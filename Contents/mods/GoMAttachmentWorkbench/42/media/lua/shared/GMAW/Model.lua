@@ -1,17 +1,11 @@
-local Framework = require "GMAW/Framework"
-local Permanent = Framework.Permanent
 local GoM = require "GMAW/Providers/GoM"
 local Gael = require "GMAW/Providers/Gael"
 local Attachments = require "GMAW/Attachments"
 local Adapters = require "GMAW/Adapters"
 local M = {}
 
--- Player-facing order: attachments first; prerequisite rails/mounts are last.
-M.slots = { "Scope", "LaserRifle", "LightRifle", "Foregrip", "Bipod", "Underbarrel",
-    "Canon", "Suppressor", "Barrel", "Shellholder", "Stock", "Sling", "RecoilPad", "RailUp",
-    "RailDown", "RailLeft", "RailRight", "CanonMount",
-    "Mount", "L_Scope", "Laser", "Light", "Grip", "Handguard",
-    "Barrel_Shroud", "Misc", "Stool" }
+-- Keep the existing built-in order; integrations append their new slots.
+M.slots = Adapters.slots
 
 function M.enabled()
     return GoM.enabled() or Adapters.anyWeaponEnabled()
@@ -26,24 +20,16 @@ function M.partAllowed(weapon, part)
     return Attachments.sameProvider(part, weapon)
 end
 
-local providers = {[GoM.attachmentSystem]=GoM, [Gael.attachmentSystem]=Gael}
-local slotSets = {}
-for id, provider in pairs(providers) do
-    local slots = {}
-    for _, slot in ipairs(provider.slots) do slots[slot] = true end
-    slotSets[id] = slots
-end
-
 function M.providerFor(item)
-    return providers[Adapters.weaponSystem(item)]
+    return Adapters.provider(Adapters.weaponSystem(item))
 end
 
 function M.adapterFor(item)
     if not item or not instanceof(item, "HandWeapon") or not item:isRanged() then return nil end
     if not Adapters.hasActiveWeaponOwner(item) then return nil end
     local system = Adapters.weaponSystem(item)
-    if not providers[system] then return nil end
-    return Adapters.weapon(item, M.catalog(), slotSets[system])
+    if not Adapters.provider(system) then return nil end
+    return Adapters.weapon(item, M.catalog(), Adapters.slotSet(system))
 end
 
 function M.supported(item)
@@ -80,7 +66,11 @@ end
 -- No weapon creation: OnCreate on upstream weapons can randomize their contents.
 -- Only WeaponPart definitions are instantiated, once per session. Optional
 -- Simple Suppressors uses OnCreate to populate the instance's MountOn list.
+local catalogRevision = Adapters.revision
 function M.catalog()
+    if catalogRevision ~= Adapters.revision then
+        M.cache, catalogRevision = nil, Adapters.revision
+    end
     if M.cache then return M.cache end
     local out = {}
     local scripts = getScriptManager():getAllItems()
@@ -88,9 +78,9 @@ function M.catalog()
         local script = scripts:get(i)
         if (M.owned(script) or Attachments.owner(script)) and script:isItemType(ItemType.WEAPON_PART) and not script:getObsolete() then
             local part = instanceItem(script:getFullName())
+            local provider = part and Adapters.provider(Attachments.partSystem(part))
             if part and (M.owned(part) or Attachments.owner(part))
-                and (not Gael.owns(part) or Gael.selectable(part))
-                and (Gael.owns(part) or not Permanent.IsPermanent(part:getFullType())) then
+                and provider and (not provider.selectable or provider.selectable(part)) then
                 out[part:getFullType()] = part
             end
         end
@@ -127,14 +117,14 @@ function M.isCandidate(weapon, fullType)
     local provider = M.providerFor(weapon)
     if not provider then return false end
     local part = M.catalog()[fullType]
-    return part ~= nil and eligible(weapon, part, slotSets[provider.attachmentSystem])
+    return part ~= nil and eligible(weapon, part, Adapters.slotSet(provider.attachmentSystem))
 end
 
 function M.canOpen(weapon)
     if not M.supported(weapon) then return false end
     local provider = M.providerFor(weapon)
     if not provider then return false end
-    local slots, catalog = slotSets[provider.attachmentSystem], M.catalog()
+    local slots, catalog = Adapters.slotSet(provider.attachmentSystem), M.catalog()
     for _, part in pairs(catalog) do
         if eligible(weapon, part, slots) then return true end
     end
@@ -151,11 +141,12 @@ end
 function M.candidates(weapon)
     local out, provider = {}, M.providerFor(weapon)
     if not provider then return out end
-    local slots, catalog = slotSets[provider.attachmentSystem], M.catalog()
+    local slots, catalog = Adapters.slotSet(provider.attachmentSystem), M.catalog()
     local context = provider.prepareMetadata and provider.prepareMetadata(weapon, catalog)
     for fullType, part in pairs(catalog) do
         if eligible(weapon, part, slots) then
             local entry = provider.metadata(weapon, part, catalog, context)
+            entry.all, entry.any, entry.excludes = entry.all or {}, entry.any or {}, entry.excludes or {}
             entry.part, entry.slot = part, part:getPartType()
             out[fullType] = entry
         end
@@ -200,12 +191,21 @@ function M.isMountCandidate(catalog, fullType)
 end
 
 function M.permanent(part)
-    return not Gael.owns(part) and Permanent.IsPermanent(part:getFullType())
+    local provider = Adapters.provider(Attachments.partSystem(part))
+    return provider and provider.permanent and provider.permanent(part) == true or false
 end
 
 function M.toolKey(part)
+    local adapter = Adapters.part(part)
+    if adapter and adapter.toolKey then return adapter.toolKey(part) end
+    local provider = Adapters.provider(Attachments.partSystem(part))
     local optional = Attachments.tools(part, false)
-    if optional then return #optional == 0 and "NoTools" or "Screwdriver" end
+    if optional then
+        if #optional == 0 then return "NoTools" end
+        if adapter and provider ~= GoM and provider and provider.toolKey then return provider.toolKey(part) end
+        -- Registered independent tools must never masquerade as a screwdriver.
+        return adapter and provider ~= GoM and "Tools" or "Screwdriver"
+    end
     return GoM.toolKey(part)
 end
 

@@ -14,6 +14,13 @@ function UI:setX(v) self.x=v end
 function UI:setY(v) self.y=v end
 function UI:setWidth(v) self.width=v end
 function UI:setHeight(v) self.height=v end
+function UI:getX() return self.x end
+function UI:getY() return self.y end
+function UI:getWidth() return self.width end
+function UI:getHeight() return self.height end
+function UI:setCapture(value) self.capture=value end
+function UI:setTitle(value) self.title=value end
+function UI:onResize() end
 function UI:addToUIManager() if not self.created then self.created=true; self:createChildren() end end
 function UI:removeFromUIManager() end
 function UI:setVisible(value) self.visible=value end
@@ -37,7 +44,9 @@ function UI:isMouseOver() return self.mouseOver end
 function UI:isMouseOverScrollBar() return false end
 function UI:getMouseX() return self.mouseX or 0 end
 function UI:getMouseY() return self.mouseY or 0 end
-function UI:drawRect(x,y,w,h) self.draws[#self.draws+1]={y=y,height=h} end
+function UI:drawRect(x,y,w,h,a,r,g,b)
+    self.draws[#self.draws+1]={x=x,y=y,width=w,height=h,alpha=a,r=r,g=g,b=b}
+end
 function UI:drawRectBorder(x,y,w,h,a,r,g,b) self.draws[#self.draws+1]={border=true,y=y,height=h,r=r,g=g,b=b} end
 function UI:drawText(text,x,y) self.draws[#self.draws+1]={text=text,y=y} end
 function UI:drawTextureScaledAspect(texture,x,y,w,h,alpha,r,g,b)
@@ -47,6 +56,15 @@ end
 function UI:prerender() end
 function UI:update() end
 ISCollapsableWindow=UI:derive(); ISScrollingListBox=UI:derive(); ISButton=UI:derive(); ISPanel=UI:derive()
+function ISCollapsableWindow:createChildren()
+    self.resizeWidget={target=self}
+    self.resizeWidget2={target=self}
+end
+function ISButton:new(x,y,width,height,title,target,callback)
+    local button=UI.new(self,x,y,width,height)
+    button.title,button.target,button.onclick=title,target,callback
+    return button
+end
 ISTextEntryBox=UI:derive()
 function ISTextEntryBox:new(text,x,y,width,height)
     local box=UI.new(self,x,y,width,height); box.text=text; return box
@@ -58,10 +76,24 @@ function ISUI3DScene:instantiate()
     local function call(_,name,...)
         self.calls[#self.calls+1]={name=name,args={...}}
         if name=="getObjectTranslation" then return {set=function(_,x,y,z) self.translation={x,y,z} end} end
+        if name=="getObjectScale" then return {set=function(_,x,y,z) self.modelScale={x,y,z} end} end
+        if name=="getObjectRotation" then return {set=function(_,x,y,z) self.modelRotation={x,y,z} end} end
     end
-    self.javaObject={fromLua1=call,fromLua2=call,fromLua3=call}
+    -- Native Right camera sceneToUI() projection used by UI visual anchors.
+    -- The fake intentionally omits model mesh geometry: only transformation
+    -- math can be checked here; actual visual alignment needs a game client.
+    local function ppu()
+        return self.width/1366*math.exp(13*0.2)*160/1.82
+    end
+    self.javaObject={fromLua1=call,fromLua2=call,fromLua3=call,
+        -- Installed UI3DScene: Right = Y 90 degrees (Left = 270).
+        sceneToUIX=function(_,x,y,z) return self.width/2+z*ppu() end,
+        sceneToUIY=function(_,x,y,z) return self.height/2-y*ppu() end}
 end
-function ISUI3DScene:setView(v) self.view=v end
+function ISUI3DScene:setView(v)
+    self.view=v
+    self.javaObject:fromLua1("setView",v)
+end
 modules["Vehicles/ISUI/ISUI3DScene"]=ISUI3DScene
 function ISToolTipInv:new(item)
     local o=UI.new(self,0,0,0,0); o.item=item; return o

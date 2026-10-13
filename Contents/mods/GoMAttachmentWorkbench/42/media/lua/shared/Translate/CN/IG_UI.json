@@ -1,4 +1,8 @@
 {
+    "IGUI_GMAW_HideWeapons": "收起武器列表",
+    "IGUI_GMAW_ShowWeapons": "展开武器列表",
+    "IGUI_GMAW_ResetLayout": "重置布局",
+    "IGUI_GMAW_ResizePanels": "拖动调整面板大小",
     "IGUI_GMAW_Screwdriver": "工具: 玩家背包中需要有可用的螺丝刀.",
     "IGUI_GMAW_Wrench": "工具: 玩家背包中需要有可用的扳手或管钳.",
     "IGUI_GMAW_BothTools": "工具: 玩家背包中需同时拥有可用的螺丝刀和扳手/管钳.",

@@ -30,10 +30,15 @@ assert.match(cn.IGUI_GMAW_Title, /[\u4E00-\u9FFF]/, 'Simplified Chinese encoding
 const ui = read('media/lua/client/GMAW/Window.lua');
 for (const [,key] of ui.matchAll(/tr\("(\w+)"\)/g)) assert.ok(en[`IGUI_GMAW_${key}`], key);
 for (const key of ['Unsupported','Conflict','Dependency','Missing','Tools','Stale','Special','Success','ActionsQueued','Busy','Stopped']) assert.ok(en[`IGUI_GMAW_${key}`]);
-const slotDeclaration = read('media/lua/shared/GMAW/Model.lua').match(/M\.slots\s*=\s*\{([\s\S]*?)\}/)?.[1];
-assert.ok(slotDeclaration, 'Weapon slot declarations exist');
-for (const [,slot] of slotDeclaration.matchAll(/"(\w+)"/g)) {
-  assert.ok(en[`IGUI_GMAW_Slot_${slot}`], `slot ${slot}`);
+assert.match(adapters, /function A\.registerProvider\(/, 'independent attachment systems have a shared registry');
+assert.match(read('media/lua/shared/GMAW/Model.lua'), /M\.slots\s*=\s*Adapters\.slots/,
+  'presentation sees slots registered by independent providers');
+for (const name of ['GoM', 'Gael']) {
+  const slots = read(`media/lua/shared/GMAW/Providers/${name}.lua`).match(/G\.slots\s*=\s*\{([\s\S]*?)\}/)?.[1];
+  assert.ok(slots, `${name} declares its slots`);
+  for (const [,slot] of slots.matchAll(/"(\w+)"/g)) {
+    assert.ok(en[`IGUI_GMAW_Slot_${slot}`], `${name} slot ${slot}`);
+  }
 }
 assert.doesNotMatch(ui, /:attachWeaponPart\(|:detachWeaponPart\(|sendRemoveItemFromContainer\(/, 'client is preview only');
 assert.match(read('media/lua/client/GMAW/Actions.lua'), /sendClientCommand\(batch.player, \"GMAW\", \"apply\"/, 'MP completion is sent to the authority');

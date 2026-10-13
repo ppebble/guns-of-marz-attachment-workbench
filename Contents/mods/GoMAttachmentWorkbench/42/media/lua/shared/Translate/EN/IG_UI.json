@@ -1,4 +1,8 @@
 {
+    "IGUI_GMAW_HideWeapons": "Hide weapons",
+    "IGUI_GMAW_ShowWeapons": "Show weapons",
+    "IGUI_GMAW_ResetLayout": "Reset layout",
+    "IGUI_GMAW_ResizePanels": "Drag to resize panels",
     "IGUI_GMAW_Screwdriver": "Tool: working screwdriver in player inventory.",
     "IGUI_GMAW_Wrench": "Tool: working wrench or pipe wrench in player inventory.",
     "IGUI_GMAW_BothTools": "Tools: working screwdriver AND wrench/pipe wrench in player inventory.",
